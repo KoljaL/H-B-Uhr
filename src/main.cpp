@@ -198,14 +198,20 @@ void starteWlanVerbindung()
   if (strlen(STATIC_IP) > 0)
   {
     IPAddress ip, gateway, subnet;
-    if (ip.fromString(STATIC_IP) && gateway.fromString(STATIC_GATEWAY) && subnet.fromString(STATIC_SUBNET))
+    const bool ipOk = ip.fromString(STATIC_IP);
+    const bool gatewayOk = gateway.fromString(STATIC_GATEWAY);
+    const bool subnetOk = subnet.fromString(STATIC_SUBNET);
+    if (ipOk && gatewayOk && subnetOk)
     {
       WiFi.config(ip, gateway, subnet);
       Serial.printf("Statische IP konfiguriert: %s\n", STATIC_IP);
     }
     else
     {
-      Serial.println("[WARNUNG] Ungueltige statische IP-Konfiguration, verwende DHCP.");
+      if (!ipOk) Serial.printf("[WARNUNG] Ungueltige STATIC_IP: '%s'\n", STATIC_IP);
+      if (!gatewayOk) Serial.printf("[WARNUNG] Ungueltige STATIC_GATEWAY: '%s'\n", STATIC_GATEWAY);
+      if (!subnetOk) Serial.printf("[WARNUNG] Ungueltige STATIC_SUBNET: '%s'\n", STATIC_SUBNET);
+      Serial.println("[WARNUNG] Statische IP-Konfiguration ungueltig, verwende DHCP.");
     }
   }
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
