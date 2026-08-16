@@ -33,6 +33,7 @@ constexpr int ENCODER_SW_PIN = 27;
 constexpr int ENCODER_VCC_PIN = -1;
 constexpr int ENCODER_STEPS = 4;
 constexpr unsigned long WIFI_RECONNECT_INTERVAL_MS = 10000;
+constexpr unsigned long WIFI_STARTUP_TIMEOUT_MS = 15000;
 constexpr unsigned long BUTTON_DEBOUNCE_MS = 200;
 
 AiEsp32RotaryEncoder rotaryEncoder(
@@ -212,6 +213,15 @@ void starteWlanVerbindung()
   Serial.printf("Verbinde mit WLAN '%s' ...\n", WIFI_SSID);
 }
 
+void warteAufWlanVerbindung()
+{
+  const unsigned long startzeit = millis();
+  while (WiFi.status() != WL_CONNECTED && millis() - startzeit < WIFI_STARTUP_TIMEOUT_MS)
+  {
+    delay(100);
+  }
+}
+
 void halteWlanVerbindung()
 {
   if (strlen(WIFI_SSID) == 0 || WiFi.status() == WL_CONNECTED)
@@ -270,15 +280,17 @@ void setup()
   schreibeInstrument(1, 0);
   schreibeInstrument(2, 0);
 
+  starteWlanVerbindung();
+  warteAufWlanVerbindung();
+  aktualisiereOtaDienst();
+
   rotaryEncoder.begin();
   rotaryEncoder.setup(readEncoderISR);
   rotaryEncoder.setBoundaries(0, PWM_MAX, false);
   rotaryEncoder.setAcceleration(50);
   rotaryEncoder.setEncoderValue(0);
 
-  starteWlanVerbindung();
   richteWebserverEin();
-  aktualisiereOtaDienst();
 
   Serial.println("Steuerung bereit!");
   Serial.println("Druecken: Instrument wechseln");
