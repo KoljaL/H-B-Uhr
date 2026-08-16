@@ -85,3 +85,41 @@ Nach dem Verbauen der Vorwiderstände muss die Ansteuerung im Code kalibriert we
 26 Encoder B
 27 Encoder Button
 
+## WLAN, Weboberflaeche und OTA
+
+Die Firmware verbindet sich im Station-Modus mit einem bestehenden WLAN. Die lokalen
+Zugangsdaten werden in einer nicht versionierten `secrets.ini` im Projektverzeichnis
+eingetragen. Als Vorlage dient `secrets.ini.example`:
+
+```ini
+[secrets]
+wifi_ssid = mein-wlan
+wifi_password = mein-passwort
+ota_hostname = hb-uhr
+```
+
+Bei fehlender Verbindung versucht der ESP32 alle 10 Sekunden automatisch erneut zu
+verbinden. Der Encoder bleibt dabei lokal bedienbar; Webserver und OTA blockieren den
+Hauptloop nicht. Die Weboberflaeche ist unter der IP-Adresse des ESP32 erreichbar.
+
+### JSON-API
+
+`GET /api/state` liefert Instrument, PWM-Werte, Grenzwerte sowie WLAN-Status und IP.
+`POST /api/state` akzeptiert beispielsweise `{"instrument":1,"pwm":450}`. Der PWM-Wert
+wird auf die jeweilige Instrumentengrenze begrenzt.
+
+### OTA
+
+Nach erfolgreicher WLAN-Verbindung kann die Firmware mit dem in `secrets.ini` gesetzten
+Hostnamen oder der IP-Adresse ueber ArduinoOTA hochgeladen werden. PlatformIO kann dafuer
+als Upload-Port den Hostnamen verwenden, zum Beispiel:
+
+```ini
+upload_protocol = espota
+upload_port = hb-uhr.local
+```
+
+Alternativ wird die IP-Adresse des ESP32 als `upload_port` gesetzt. Fuer die erste
+Inbetriebnahme bleibt der serielle Upload verfuegbar, wenn `upload_protocol` nicht
+gesetzt ist.
+

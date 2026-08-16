@@ -1,0 +1,175 @@
+Processing usb (platform: espressif32; board: esp32dev; framework: arduino)
+--------------------------------------------------------------------------------
+Tool Manager: Installing https://github.com/pioarduino/registry/releases/download/0.0.1/mklittlefs-3.2.0-new.zip
+Unpacking 0% 10% 20%
+Tool Manager: tool-mklittlefs@3.2.0 has been installed!
+Verbose mode can be enabled via `-v, --verbose` option
+CONFIGURATION: https://docs.platformio.org/page/boards/espressif32/esp32dev.html
+PLATFORM: Espressif 32 (55.3.35) > Espressif ESP32 Dev Module
+HARDWARE: ESP32 240MHz, 320KB RAM, 4MB Flash
+DEBUG: Current (cmsis-dap) External (cmsis-dap, esp-bridge, esp-prog, iot-bus-jtag, jlink, minimodule, olimex-arm-usb-ocd, olimex-arm-usb-ocd-h, olimex-arm-usb-tiny-h, olimex-jtag-tiny, tumpa)
+PACKAGES: 
+ - contrib-piohome @ 3.4.4 
+ - framework-arduinoespressif32 @ 3.3.5 
+ - framework-arduinoespressif32-libs @ 5.5.0+sha.9bb7aa84fe 
+ - tool-esptoolpy @ 5.1.0 
+ - tool-openocd-esp32 @ 2.1200.20250707 (12.0) 
+ - tool-xtensa-esp-elf-gdb @ 16.3.0+20250913 
+ - toolchain-xtensa-esp-elf @ 14.2.0+20251107
+LDF: Library Dependency Finder -> https://bit.ly/configure-pio-ldf
+LDF Modes: Finder ~ chain, Compatibility ~ soft
+Found 45 compatible libraries
+Scanning dependencies...
+Dependency Graph
+|-- Ai Esp32 Rotary Encoder @ 1.7.0
+|-- ArduinoJson @ 7.4.3
+|-- ArduinoOTA @ 3.3.5
+|-- WebServer @ 3.3.5
+|-- WiFi @ 3.3.5
+Building in release mode
+Compiling .pio/build/usb/lib8c6/Ai Esp32 Rotary Encoder/AiEsp32RotaryEncoder.cpp.o
+Compiling .pio/build/usb/lib8c6/Ai Esp32 Rotary Encoder/AiEsp32RotaryEncoderNumberSelector.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkClient.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkEvents.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkInterface.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkManager.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkServer.cpp.o
+Compiling .pio/build/usb/lib3cb/Network/NetworkUdp.cpp.o
+Compiling .pio/build/usb/libd09/Hash/PBKDF2_HMACBuilder.cpp.o
+.pio/libdeps/usb/Ai Esp32 Rotary Encoder/src/AiEsp32RotaryEncoder.cpp:16:54: warning: ignoring attribute 'section (".iram1.2")' because it conflicts with previous 'section (".iram1.0")' [-Wattributes]
+   16 | void IRAM_ATTR AiEsp32RotaryEncoder::readEncoder_ISR()
+      |                                                      ^
+In file included from .pio/libdeps/usb/Ai Esp32 Rotary Encoder/src/AiEsp32RotaryEncoder.cpp:11:
+.pio/libdeps/usb/Ai Esp32 Rotary Encoder/src/AiEsp32RotaryEncoder.h:82:24: note: previous declaration here
+   82 |         void IRAM_ATTR readEncoder_ISR();
+      |                        ^~~~~~~~~~~~~~~
+.pio/libdeps/usb/Ai Esp32 Rotary Encoder/src/AiEsp32RotaryEncoder.cpp:155:53: warning: ignoring attribute 'section (".iram1.3")' because it conflicts with previous 'section (".iram1.1")' [-Wattributes]
+  155 | void IRAM_ATTR AiEsp32RotaryEncoder::readButton_ISR()
+      |                                                     ^
+.pio/libdeps/usb/Ai Esp32 Rotary Encoder/src/AiEsp32RotaryEncoder.h:83:24: note: previous declaration here
+   83 |         void IRAM_ATTR readButton_ISR();
+      |                        ^~~~~~~~~~~~~~
+Compiling .pio/build/usb/libd09/Hash/SHA1Builder.cpp.o
+Compiling .pio/build/usb/libd09/Hash/SHA2Builder.cpp.o
+Compiling .pio/build/usb/libd09/Hash/SHA3Builder.cpp.o
+Compiling .pio/build/usb/lib16d/Update/HttpsOTAUpdate.cpp.o
+Compiling .pio/build/usb/lib16d/Update/Updater.cpp.o
+Compiling .pio/build/usb/lib16d/Update/Updater_Signing.cpp.o
+Compiling .pio/build/usb/lib0e2/ESPmDNS/ESPmDNS.cpp.o
+Compiling .pio/build/usb/libfac/ArduinoOTA/ArduinoOTA.cpp.o
+Compiling .pio/build/usb/libe95/FS/FS.cpp.o
+Compiling .pio/build/usb/libe95/FS/vfs_api.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/Parsing.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/WebServer.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/detail/mimetable.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/middleware/AuthenticationMiddleware.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/middleware/CorsMiddleware.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/middleware/LoggingMiddleware.cpp.o
+Compiling .pio/build/usb/libcb0/WebServer/middleware/MiddlewareChain.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/AP.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/STA.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFi.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFiAP.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFiGeneric.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFiMulti.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFiSTA.cpp.o
+Compiling .pio/build/usb/lib6e6/WiFi/WiFiScan.cpp.o
+Compiling .pio/build/usb/src/main.cpp.o
+Building .pio/build/usb/bootloader.bin
+Generating partitions .pio/build/usb/partitions.bin
+Compiling .pio/build/usb/FrameworkArduino/ColorFormat.c.o
+esptool v5.1.0
+Creating ESP32 image...
+Merged 2 ELF sections.
+Successfully created ESP32 image.
+Compiling .pio/build/usb/FrameworkArduino/Esp.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/FirmwareMSC.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/FunctionalInterrupt.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/HEXBuilder.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/HWCDC.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/HardwareSerial.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/HashBuilder.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/IPAddress.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/MD5Builder.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/MacAddress.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/Print.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/Stream.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/StreamString.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/Tone.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/USB.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/USBCDC.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/USBMSC.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/WMath.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/WString.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/base64.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/cbuf.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/chip-debug-report.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-adc.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-bt.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-cpu.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-dac.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-gpio.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-hosted.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-i2c-ng.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-i2c-slave.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-i2c.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-ledc.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-matrix.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-misc.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-periman.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-psram.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-rgb-led.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-rmt.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-sigmadelta.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-spi.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-time.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-timer.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-tinyusb.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-touch-ng.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-touch.c.o
+Compiling .pio/build/usb/FrameworkArduino/esp32-hal-uart.c.o
+Compiling .pio/build/usb/FrameworkArduino/firmware_msc_fat.c.o
+Compiling .pio/build/usb/FrameworkArduino/freertos_stats.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/libb64/cdecode.c.o
+Compiling .pio/build/usb/FrameworkArduino/libb64/cencode.c.o
+Compiling .pio/build/usb/FrameworkArduino/main.cpp.o
+Compiling .pio/build/usb/FrameworkArduino/stdlib_noniso.c.o
+Compiling .pio/build/usb/FrameworkArduino/wiring_pulse.c.o
+Compiling .pio/build/usb/FrameworkArduino/wiring_shift.c.o
+Archiving .pio/build/usb/libFrameworkArduino.a
+Indexing .pio/build/usb/libFrameworkArduino.a
+Linking .pio/build/usb/firmware.elf
+                            Memory Type Usage Summary                             
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┓
+┃ Memory Type/Section ┃ Used [bytes] ┃ Used [%] ┃ Remain [bytes] ┃ Total [bytes] ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━┩
+│ Flash Code          │       753896 │          │                │               │
+│    .text            │       753896 │          │                │               │
+│ Flash Data          │       183292 │          │                │               │
+│    .rodata          │       183036 │          │                │               │
+│    .appdesc         │          256 │          │                │               │
+│ IRAM                │        84871 │    64.75 │          46201 │        131072 │
+│    .text            │        83843 │    63.97 │                │               │
+│    .vectors         │         1028 │     0.78 │                │               │
+│ DRAM                │        51168 │    41.07 │          73412 │        124580 │
+│    .bss             │        28288 │    22.71 │                │               │
+│    .data            │        22880 │    18.37 │                │               │
+└─────────────────────┴──────────────┴──────────┴────────────────┴───────────────┘
+Total image size: 1044939 bytes (.bin may be padded larger)
+Note: The reported total sizes may be smaller than those in the technical reference manual due to reserved memory and application configuration. The total flash size available for the application is not included by default, as it cannot be reliably determined due to the presence of other data like the bootloader, partition table, and application partition size.
+Retrieving maximum program size .pio/build/usb/firmware.elf
+Checking size .pio/build/usb/firmware.elf
+Advanced Memory Usage is available via "PlatformIO Home > Project Inspect"
+RAM:   [==        ]  15.6% (used 51168 bytes from 327680 bytes)
+Flash: [========  ]  79.7% (used 1044683 bytes from 1310720 bytes)
+Building .pio/build/usb/firmware.bin
+esptool v5.1.0
+Creating ESP32 image...
+Merged 2 ELF sections.
+Successfully created ESP32 image.
+========================= [SUCCESS] Took 18.33 seconds =========================
+
+Environment    Status    Duration
+-------------  --------  ------------
+usb            SUCCESS   00:00:18.335
+========================= 1 succeeded in 00:00:18.335 =========================
