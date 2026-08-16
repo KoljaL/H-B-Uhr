@@ -24,8 +24,8 @@ constexpr int PIN_INST_2 = 14; // Stundenzeiger, 3,3-V-Schiene
 constexpr int PWM_FREQ = 500;
 constexpr int PWM_RESOLUTION = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION) - 1;
-constexpr int PWM_MAX_INST_1 = 900; // Kalibriergrenze fuer Instrument 1
-constexpr int PWM_MAX_INST_2 = 870; // Hardware-Grenze aus Projektdoku.md
+constexpr int PWM_MAX_INST_1 = PWM_MAX;
+constexpr int PWM_MAX_INST_2 = PWM_MAX;
 
 constexpr int ENCODER_A_PIN = 26;
 constexpr int ENCODER_B_PIN = 25;
@@ -295,7 +295,7 @@ void setup()
   Serial.println("Steuerung bereit!");
   Serial.println("Druecken: Instrument wechseln");
   Serial.println("Drehen: PWM-Wert aendern");
-  Serial.println("Instrument 2 ist auf PWM 870 begrenzt.");
+  Serial.printf("Beide Instrumente sind auf PWM %d begrenzt.\n", PWM_MAX);
 }
 
 void loop()
