@@ -16,6 +16,15 @@
 #ifndef OTA_HOSTNAME
 #define OTA_HOSTNAME "HB-Uhr"
 #endif
+#ifndef STATIC_IP
+#define STATIC_IP ""
+#endif
+#ifndef STATIC_GATEWAY
+#define STATIC_GATEWAY ""
+#endif
+#ifndef STATIC_SUBNET
+#define STATIC_SUBNET ""
+#endif
 
 // PWM-Ausgaenge gemaess der Pinbelegung in Projektdoku.md.
 constexpr int PIN_INST_1 = 13; // Minutenzeiger, 12-V-Schiene
@@ -181,33 +190,30 @@ void aktualisiereOtaDienst()
   }
 }
 
-// void aktualisiereOtaDienst()
-// {
-//   if (!otaAktiv || WiFi.status() != WL_CONNECTED)
-//   {
-//     if (otaDienstBereit)
-//     {
-//       ArduinoOTA.end();
-//       otaDienstBereit = false;
-//     }
-//     return;
-//   }
-
-//   if (!otaDienstBereit)
-//   {
-//     ArduinoOTA.setHostname(OTA_HOSTNAME);
-//     // ArduinoOTA.setPort(8266);
-//     ArduinoOTA.begin();
-//     otaDienstBereit = true;
-//     Serial.printf("OTA aktiv auf %s:3232\n", WiFi.localIP().toString().c_str());
-//   }
-// }
-
 void starteWlanVerbindung()
 {
   WiFi.mode(WIFI_STA);
   if (strlen(WIFI_SSID) == 0)
     return;
+  if (strlen(STATIC_IP) > 0)
+  {
+    IPAddress ip, gateway, subnet;
+    const bool ipOk = ip.fromString(STATIC_IP);
+    const bool gatewayOk = gateway.fromString(STATIC_GATEWAY);
+    const bool subnetOk = subnet.fromString(STATIC_SUBNET);
+    if (ipOk && gatewayOk && subnetOk)
+    {
+      WiFi.config(ip, gateway, subnet);
+      Serial.printf("Statische IP konfiguriert: %s\n", STATIC_IP);
+    }
+    else
+    {
+      if (!ipOk) Serial.printf("[WARNUNG] Ungueltige STATIC_IP: '%s'\n", STATIC_IP);
+      if (!gatewayOk) Serial.printf("[WARNUNG] Ungueltige STATIC_GATEWAY: '%s'\n", STATIC_GATEWAY);
+      if (!subnetOk) Serial.printf("[WARNUNG] Ungueltige STATIC_SUBNET: '%s'\n", STATIC_SUBNET);
+      Serial.println("[WARNUNG] Statische IP-Konfiguration ungueltig, verwende DHCP.");
+    }
+  }
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   letzteWlanPruefung = millis();
   Serial.printf("Verbinde mit WLAN '%s' ...\n", WIFI_SSID);
