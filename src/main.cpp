@@ -169,9 +169,22 @@ void aktualisiereOtaDienst()
 
     // Optionale Sicherheit: Erlaubt detailliertes Loggen im Seriellen Monitor
     ArduinoOTA.onStart([]()
-                       { Serial.println("[OTA] Start des Uploads..."); });
+                       {  
+                        Serial.println("Encoder-Interrupts werden deaktiviert, OTA-Upload startet...");
+        // Löst die Hardware-Interrupts von den Pins, damit sie die CPU nicht stören:
+        detachInterrupt(digitalPinToInterrupt(ENCODER_A_PIN));
+        detachInterrupt(digitalPinToInterrupt(ENCODER_B_PIN));
+        
+        // Falls du den Button-Pin des Encoders nutzt, diesen hier auch lösen:
+        detachInterrupt(digitalPinToInterrupt(ENCODER_SW_PIN)); 
+                        
+                        Serial.println("[OTA] Start des Uploads..."); });
     ArduinoOTA.onEnd([]()
-                     { Serial.println("\n[OTA] Fertig!"); });
+                     {
+                       Serial.println("\n[OTA] Fertig!");
+                       // encoder-Interrupts wieder aktivieren, nachdem der Upload abgeschlossen ist:
+                       rotaryEncoder.setup(readEncoderISR);
+                       Serial.println("[OTA] Encoder-Interrupts wieder aktiviert."); });
     ArduinoOTA.onProgress([](unsigned int progress, unsigned int total)
                           { Serial.printf("Fortschritt: %u%%\r", (progress / (total / 100))); });
     ArduinoOTA.onError([](ota_error_t error)
@@ -187,6 +200,11 @@ void aktualisiereOtaDienst()
     otaDienstBereit = true;
     Serial.printf("[OTA] Aktiviert auf %s:3232 mit Hostname '%s'\n",
                   WiFi.localIP().toString().c_str(), OTA_HOSTNAME);
+    // print everything about the OTA service for debugging
+    Serial.println("[OTA] Details:");
+    Serial.printf("[OTA]   Hostname: %s\n", ArduinoOTA.getHostname());
+    Serial.printf("[OTA]   IP: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[OTA]   MAC: %s\n", WiFi.macAddress().c_str());
   }
 }
 
@@ -208,12 +226,16 @@ void starteWlanVerbindung()
     }
     else
     {
-      if (!ipOk) Serial.printf("[WARNUNG] Ungueltige STATIC_IP: '%s'\n", STATIC_IP);
-      if (!gatewayOk) Serial.printf("[WARNUNG] Ungueltige STATIC_GATEWAY: '%s'\n", STATIC_GATEWAY);
-      if (!subnetOk) Serial.printf("[WARNUNG] Ungueltige STATIC_SUBNET: '%s'\n", STATIC_SUBNET);
+      if (!ipOk)
+        Serial.printf("[WARNUNG] Ungueltige STATIC_IP: '%s'\n", STATIC_IP);
+      if (!gatewayOk)
+        Serial.printf("[WARNUNG] Ungueltige STATIC_GATEWAY: '%s'\n", STATIC_GATEWAY);
+      if (!subnetOk)
+        Serial.printf("[WARNUNG] Ungueltige STATIC_SUBNET: '%s'\n", STATIC_SUBNET);
       Serial.println("[WARNUNG] Statische IP-Konfiguration ungueltig, verwende DHCP.");
     }
   }
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   letzteWlanPruefung = millis();
   Serial.printf("Verbinde mit WLAN '%s' ...\n", WIFI_SSID);
@@ -309,8 +331,6 @@ void loop()
   halteWlanVerbindung();
   server.handleClient();
   aktualisiereOtaDienst();
-
-  // IMMER aufrufen - die Bibliothek verwaltet ihren Status intern selbst.
   ArduinoOTA.handle();
 
   if (rotaryEncoder.isEncoderButtonClicked() && millis() - letzterTasterzeitpunkt >= BUTTON_DEBOUNCE_MS)
