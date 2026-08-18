@@ -71,9 +71,8 @@ Für den stabilen Betrieb des Dreheisenmesswerks ist die richtige Frequenzwahl e
 
 Nach dem Verbauen der Vorwiderstände muss die Ansteuerung im Code kalibriert werden, um mechanische Beschädigungen an den Instrumenten zu verhindern und Spannungsdifferenzen auszugleichen:
 
-* **Ausschlag begrenzen (Allgemein):** Trage in der Look-Up-Table für den maximalen Ausschlag (100 %) nicht blind den Maximalwert des PWM-Registers (`1023`) ein. Der Zeiger würde sonst mechanisch hart anschlagen.
-* **Besonderheit bei Instrument 2:** Da der $2,2\,\Omega$-Vorwiderstand an 3,3 V hardwareseitig etwas zu klein dimensioniert ist (rechnerisch lägen bei 100 % Duty Cycle ca. 3,0 V statt der erlaubten 2,7 V am Instrument an), muss dieser Überschuss rein über die Software abgefangen werden. Der maximale PWM-Wert für Instrument 2 darf im Code den rechnerischen Grenzwert von **ca. 85 % (ca. 870 bei 10-Bit)** nicht überschreiten.
-* **Kalibrierungsvorgang:** Taste dich im Code für beide Instrumente langsam von einem PWM-Wert von ca. 800 nach oben vor, bis der Zeiger jeweils exakt auf dem letzten Skalenstrich steht. Dies fängt jede Ungenauigkeit der alten Hartmann & Braun Spulen sowie die Hardware-Toleranzen perfekt ab.
+* **PWM-Bereich:** Die Firmware verwendet für beide Instrumente den nativen 10-Bit-Bereich von `0` bis `1023`. Die zulässigen Endpunkte werden bei der Kalibrierung vorsichtig ermittelt; ein mechanischer Anschlag ist zu vermeiden.
+* **Kalibrierungsvorgang:** Taste dich in der Weboberfläche oder mit dem Encoder für beide Instrumente langsam von einem niedrigen PWM-Wert nach oben vor, bis der Zeiger jeweils exakt auf dem letzten Skalenstrich steht. Dies berücksichtigt die Ungenauigkeiten der Hartmann-&-Braun-Spulen sowie die Hardware-Toleranzen.
 
 
 ## Pinbelegung (ESP32):
@@ -85,7 +84,7 @@ Nach dem Verbauen der Vorwiderstände muss die Ansteuerung im Code kalibriert we
 26 Encoder B
 27 Encoder Button
 
-## WLAN, Weboberflaeche und OTA
+## WLAN und Weboberflaeche
 
 Die Firmware verbindet sich im Station-Modus mit einem bestehenden WLAN. Die lokalen
 Zugangsdaten werden in einer nicht versionierten `secrets.ini` im Projektverzeichnis
@@ -95,31 +94,15 @@ eingetragen. Als Vorlage dient `secrets.ini.example`:
 [secrets]
 wifi_ssid = mein-wlan
 wifi_password = mein-passwort
-ota_hostname = hb-uhr
 ```
 
 Bei fehlender Verbindung versucht der ESP32 alle 10 Sekunden automatisch erneut zu
-verbinden. Der Encoder bleibt dabei lokal bedienbar; Webserver und OTA blockieren den
+verbinden. Der Encoder bleibt dabei lokal bedienbar; der Webserver blockiert den
 Hauptloop nicht. Die Weboberflaeche ist unter der IP-Adresse des ESP32 erreichbar.
 
 ### JSON-API
 
-`GET /api/state` liefert Instrument, PWM-Werte, Grenzwerte sowie WLAN-Status und IP.
-`POST /api/state` akzeptiert beispielsweise `{"instrument":1,"pwm":450}`. Der PWM-Wert
-wird auf die jeweilige Instrumentengrenze begrenzt.
-
-### OTA
-
-Nach erfolgreicher WLAN-Verbindung kann die Firmware mit dem in `secrets.ini` gesetzten
-Hostnamen oder der IP-Adresse ueber ArduinoOTA hochgeladen werden. PlatformIO kann dafuer
-als Upload-Port den Hostnamen verwenden, zum Beispiel:
-
-```ini
-upload_protocol = espota
-upload_port = hb-uhr.local
-```
-
-Alternativ wird die IP-Adresse des ESP32 als `upload_port` gesetzt. Fuer die erste
-Inbetriebnahme bleibt der serielle Upload verfuegbar, wenn `upload_protocol` nicht
-gesetzt ist.
+`GET /api/state` liefert Instrument und PWM-Werte. `POST /api/state` akzeptiert
+beispielsweise `{"instrument":1,"pwm":450}`. Der PWM-Wert muss im gemeinsamen
+10-Bit-Bereich von `0` bis `1023` liegen.
 
