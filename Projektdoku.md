@@ -106,3 +106,45 @@ Hauptloop nicht. Die Weboberflaeche ist unter der IP-Adresse des ESP32 erreichba
 beispielsweise `{"instrument":1,"pwm":450}`. Der PWM-Wert muss im gemeinsamen
 10-Bit-Bereich von `0` bis `1023` liegen.
 
+## Firmware-Architektur
+
+Die Firmware verwendet drei Betriebszustände:
+
+* `0` Normalbetrieb
+* `1` Minutenkalibrierung
+* `2` Stundenkalibrierung
+
+Die Kalibrierungstabellen enthalten jeweils 13 Werte. Für das Minutenmesswerk
+werden die Punkte `0, 5, ..., 60` Minuten gespeichert. Für das Stundenmesswerk
+werden die Punkte `0, 1, ..., 12` Uhr gespeichert. Die Werte liegen als
+`uint16_t`-Arrays im NVS-Namespace `hb-uhr` und werden beim Start validiert.
+Fehlende oder ungültige Werte werden mit `0` initialisiert.
+
+Im Normalbetrieb berechnet die Firmware den Minutenwert per linearer
+Interpolation zwischen benachbarten 5-Minuten-Punkten. Der Stundenwert wird für
+die Viertelstunden `00`, `15`, `30` und `45` zwischen den benachbarten
+Stundenpunkten interpoliert. Die Dummy-Uhrzeit wird über `POST /api/time` gesetzt
+und bleibt anschließend unverändert, bis sie erneut gesetzt wird.
+
+## WLAN und Access Point
+
+Zuerst versucht die Firmware, sich mit den Zugangsdaten aus `secrets.ini` im
+Station-Modus zu verbinden. Nach einem nicht-blockierenden Timeout von 15
+Sekunden startet sie den Access Point `HB-Uhr-Setup` mit dem Passwort
+`hb-uhr-setup`. Der Webserver ist dann unter `192.168.4.1` erreichbar.
+
+Die WLAN-Wiederverbindung, der Webserver, die Encoder-Abfrage und die
+Zeitberechnung laufen ohne `delay()` in `loop()`.
+
+## Erweiterte JSON-API
+
+`GET /api/state` liefert Betriebsart, Kalibrierindex, Dummy-Uhrzeit, aktuelle
+PWM-Werte und beide vollständigen Kalibrierungstabellen.
+
+Weitere Endpunkte:
+
+* `POST /api/mode` mit `{"mode":0}`, `{"mode":1}` oder `{"mode":2}`
+* `POST /api/time` mit `{"hour":14,"minute":30}`
+* `POST /api/calibration` mit Instrument, Index, PWM und optionalem `persist`
+* `POST /api/calibration/save` zum dauerhaften Speichern aller Werte
+

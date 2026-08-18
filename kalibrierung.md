@@ -1,86 +1,80 @@
-```cpp
-#include <Arduino.h>#include "AiEsp32RotaryEncoder.h"
-// PIN-Definitionen für die Instrumente (IRF3708 Gates)const int PIN_INST_1 = 18;  // Instrument 1 (Minuten / 12V Schiene)const int PIN_INST_2 = 19;  // Instrument 2 (Stunden / 3.3V Schiene)
-// PWM-Einstellungen (ca. 500 Hz für Dreheisenmesswerke)const int PWM_FREQ = 500;       const int PWM_RESOLUTION = 10;   // 10 Bit = 0 bis 1023
-// PIN-Definitionen für den Drehencoderconst int ENCODER_A_PIN = 25;const int ENCODER_B_PIN = 26;const int ENCODER_SW_PIN = 27; // Taster des Encodersconst int ENCODER_VCC_PIN = -1; // -1 wenn direkt an 3V3 angeschlossenconst int ENCODER_STEPS = 4;    // Schritte pro Raste (meist 4)
-// Encoder-Objekt initialisierenAiEsp32RotaryEncoder rotaryEncoder = AiEsp32RotaryEncoder(ENCODER_A_PIN, ENCODER_B_PIN, ENCODER_SW_PIN, ENCODER_VCC_PIN, ENCODER_STEPS);
-// Variablen für die Steuerungint aktuellesInstrument = 1; // 1 = Instrument 1, 2 = Instrument 2int pwmWertInst1 = 0;int pwmWertInst2 = 0;int alterWert = -1;
-// ISR (Interrupt Service Routine) für den Encodervoid IRAM_ATTR readEncoderISR() {
-    rotaryEncoder.readEncoder_ISR();
-}
-void setup() {
-    Serial.begin(115200);
-    delay(1000);
-    Serial.println("\n=== Hartmann & Braun Kalibrierung gestartet ===");
+# Kalibrierung der H&B-Uhr
 
-    // PWM-Kanäle auf dem ESP32 einrichten
-    ledcAttach(PIN_INST_1, PWM_FREQ, PWM_RESOLUTION);
-    ledcAttach(PIN_INST_2, PWM_FREQ, PWM_RESOLUTION);
+Die Firmware kalibriert die beiden Dreheisenmesswerke über 13 PWM-Stützpunkte je Instrument. Die Werte werden dauerhaft im Flash des ESP32 gespeichert.
 
-    // Instrumente initial auf 0 setzen
-    ledcWrite(PIN_INST_1, 0);
-    ledcWrite(PIN_INST_2, 0);
+## Aktuelle Pinbelegung
 
-    // Encoder initialisieren
-    rotaryEncoder.begin();
-    rotaryEncoder.setup(readEncoderISR);
-    rotaryEncoder.setBoundaries(0, 1023, false); // Wertebereich 0-1023, kein Kreis-Umlauf
-    rotaryEncoder.setAcceleration(50);          // Schnelles Drehen erhöht die Schrittweite
-    rotaryEncoder.setEncoderValue(0);
+| Funktion             | GPIO |
+| -------------------- | ---: |
+| Minutenmesswerk, PWM |   13 |
+| Stundenmesswerk, PWM |   14 |
+| Encoder A            |   26 |
+| Encoder B            |   25 |
+| Encoder-Taster       |   27 |
 
-    Serial.println("Steuerung bereit!");
-    Serial.println("-> Druecken: Wechselt zwischen Instrument 1 und 2");
-    Serial.println("-> Drehen  : Verandert den PWM-Wert (0 bis 1023)");
-    Serial.println("AKTUELL: Instrument 1 (Minuten) gewaehlt.");
-}
-void loop() {
-    // 1. Taster des Encoders abfragen (Umschalten des Instruments)
-    if (rotaryEncoder.isEncoderButtonClicked()) {
-        if (aktuellesInstrument == 1) {
-            // Sichern des aktuellen Wertes für Instrument 1
-            pwmWertInst1 = rotaryEncoder.getEncoderValue();
-            aktuellesInstrument = 2;
-            // Encoder auf den alten Wert von Instrument 2 setzen
-            rotaryEncoder.setEncoderValue(pwmWertInst2);
-            Serial.println("\n[WECHSEL] -> Jetzt Instrument 2 (Stunden) gewaehlt.");
-        } else {
-            // Sichern des aktuellen Wertes für Instrument 2
-            pwmWertInst2 = rotaryEncoder.getEncoderValue();
-            aktuellesInstrument = 1;
-            // Encoder auf den alten Wert von Instrument 1 setzen
-            rotaryEncoder.setEncoderValue(pwmWertInst1);
-            Serial.println("\n[WECHSEL] -> Jetzt Instrument 1 (Minuten) gewaehlt.");
-        }
-        alterWert = -1; // Ausgabe im Serial Monitor erzwingen
-        delay(200);     // Software-Entprellung für den Taster
-    }
+Die PWM arbeitet mit 500 Hz und 10 Bit. Der gültige Bereich ist `0` bis `1023`. Die elektrische Beschaltung mit MOSFETs, Vorwiderständen und Freilaufdioden muss vor der Kalibrierung geprüft werden.
 
-    // 2. Drehbewegung abfragen und PWM ausgeben
-    if (rotaryEncoder.encoderChanged()) {
-        int aktuellerWert = rotaryEncoder.getEncoderValue();
+## Vorbereitung
 
-        if (aktuellerWert != alterWert) {
-            if (aktuellesInstrument == 1) {
-                pwmWertInst1 = aktuellerWert;
-                ledcWrite(PIN_PIN_INST_1, pwmWertInst1);
-                Serial.printf("Instrument 1 (Minuten) | PWM-Wert: %4d / 1023\n", pwmWertInst1);
-            } else {
-                pwmWertInst2 = aktuellerWert;
-                ledcWrite(PIN_INST_2, pwmWertInst2);
-                Serial.printf("Instrument 2 (Stunden) | PWM-Wert: %4d / 1023\n", pwmWertInst2);
-            }
-            alterWert = aktuellerWert;
-        }
-    }
-}
+1. Firmware mit PlatformIO auf den ESP32 übertragen.
+2. Seriellen Monitor mit 115200 Baud öffnen.
+3. Weboberfläche über die IP-Adresse des ESP32 öffnen. Wenn kein konfiguriertes WLAN erreichbar ist, verbindet sich der Rechner mit dem Access Point `HB-Uhr-Setup`; Passwort: `hb-uhr-setup`.
+4. Die Zeiger niemals gegen einen mechanischen Anschlag fahren. Den PWM-Wert vorsichtig erhöhen und den maximal sicheren Wert notieren.
+
+## Encoder-Ablauf
+
+Die Kalibrierung wird im Webinterface mit **Minuten kalibrieren** gestartet. Der Encoder kann danach ohne Weboberfläche verwendet werden.
+
+### Minutenmesswerk
+
+1. Die Firmware startet bei Minute 0.
+2. Drehen verändert den PWM-Wert live.
+3. Kurzer Tastendruck speichert den Wert und wechselt zum nächsten Punkt.
+4. Die Punkte sind `0, 5, 10, ..., 60` Minuten. Der Punkt 60 wird separat gespeichert.
+5. Nach dem Speichern von Punkt 60 einen langen Tastendruck ausführen, um zur Stundenkalibrierung zu wechseln.
+
+### Stundenmesswerk
+
+1. Die Firmware startet bei Stunde 0.
+2. Drehen verändert den PWM-Wert des Stundenmesswerks live.
+3. Kurzer Tastendruck speichert den Wert und wechselt zum nächsten Punkt.
+4. Die Punkte sind `0, 1, 2, ..., 12` Uhr.
+5. Nach dem Speichern von Punkt 12 wechselt die Firmware automatisch in den Normalbetrieb. Ein langer Tastendruck kann die Stundenkalibrierung vorher beenden.
+
+Die Werte werden bei jedem kurzen Tastendruck in den Flash geschrieben. Die Weboberfläche bietet zusätzlich einen gemeinsamen Speichern-Befehl.
+
+## Normalbetrieb
+
+Die Dummy-Uhrzeit wird im Webinterface gesetzt und bleibt danach stehen. Die Minutenanzeige wird für jede Minute neu berechnet:
+
+- Minute 0 bis 5 liegt zwischen den Punkten 0 und 5.
+- Minute 1 bis 4 wird linear zwischen diesen Punkten interpoliert.
+- Minute 59 liegt zwischen den Punkten 55 und 60.
+
+Der Stundenzeiger wird nur in 15-Minuten-Schritten aktualisiert. Die Position zwischen zwei vollen Stunden wird linear interpoliert. Beispiel: Bei `14:30` wird zwischen dem kalibrierten Wert für 2 Uhr und dem für 3 Uhr die Hälfte ausgegeben. Für den Übergang `12:00` zu `13:00` werden Punkt 12 und Punkt 1 verwendet.
+
+## Weboberfläche
+
+Die Oberfläche enthält:
+
+- Umschaltung zwischen Normalbetrieb, Minuten- und Stundenkalibrierung
+- Einstellung der Dummy-Uhrzeit
+- Tabelle aller 13 Minuten- und 13 Stundenpunkte
+- Live-Test eines beliebigen PWM-Wertes
+- Live-Test einzelner Tabellenpunkte
+- dauerhaftes Speichern aller Tabellenwerte
+
+Die Tabellenwerte werden erst durch den Speichern-Befehl dauerhaft übernommen. Ein Live-Test verändert den Wert zunächst nur im RAM.
+
+## API-Beispiele
+
+```text
+GET  /api/state
+POST /api/state              {"instrument":1,"pwm":450}
+POST /api/mode               {"mode":1}
+POST /api/time               {"hour":14,"minute":30}
+POST /api/calibration        {"instrument":1,"index":3,"pwm":450,"persist":false}
+POST /api/calibration/save   {}
 ```
 
-
-## So gehst du bei der Kalibrierung vor:
-
-   1. Flashe den Code über VSCode/PlatformIO auf den ESP32 und öffne den Serial Monitor (unten in der Leiste das Stecker-Symbol oder Alt+Shift+M).
-   2. Du startest bei Instrument 1. Drehe den Encoder langsam hoch, bis sich der Zeiger bewegt. Notiere dir den PWM-Wert für den Nullpunkt (falls dieser nicht bei 0 liegt).
-   3. Drehe weiter, bis der Zeiger exakt auf dem ersten Skalenstrich (z. B. 10 % oder 5 Minuten) steht. Notiere den PWM-Wert aus dem Serial Monitor.
-   4. Wiederhole das in Schritten bis zum Vollausschlag (100 %). Vorsicht am Ende: Wegen der neuen Vorwiderstände erreichst du den Vollausschlag deutlich vor 1023. Drehe nicht weiter, sobald der Zeiger am Anschlag steht!
-   5. Drücke einmal auf den Encoder-Knopf. Du wechselst zu Instrument 2 und wiederholst das Ganze für die Stunden.
-   6. Die notierten Werte trägst du anschließend einfach in die Arrays (KALIBRIERUNG_INST_1 und _2) des finalen Uhren-Codes ein.
+`mode` ist `0` für Normalbetrieb, `1` für Minutenkalibrierung und `2` für Stundenkalibrierung. PWM-Werte, Indizes und Uhrzeiten werden serverseitig validiert.

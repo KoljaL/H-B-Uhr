@@ -2,17 +2,35 @@
 #ifndef WEB_SERVER_H
 #define WEB_SERVER_H
 
+#include <Arduino.h>
+
 struct WebServerState
 {
-  int instrument;
-  int pwmInstrument1;
-  int pwmInstrument2;
+  uint8_t mode;
+  uint8_t calibrationIndex;
+  uint8_t dummyHour;
+  uint8_t dummyMinute;
+  int activeInstrument;
+  int pwmMinutes;
+  int pwmHours;
+  uint16_t minutes[13];
+  uint16_t hours[13];
 };
 
 using WebStateReader = WebServerState (*)();
 using WebPwmWriter = bool (*)(int instrument, int pwm);
+using WebModeWriter = bool (*)(uint8_t mode);
+using WebTimeWriter = bool (*)(uint8_t hour, uint8_t minute);
+using WebCalibrationWriter = bool (*)(int instrument, uint8_t index, int pwm, bool persist);
+using WebCalibrationSaver = bool (*)();
 
-void richteWebserverEin(WebStateReader stateReader, WebPwmWriter pwmWriter);
+void richteWebserverEin(
+    WebStateReader stateReader,
+    WebPwmWriter pwmWriter,
+    WebModeWriter modeWriter,
+    WebTimeWriter timeWriter,
+    WebCalibrationWriter calibrationWriter,
+    WebCalibrationSaver calibrationSaver);
 void bearbeiteWebserver();
 
 #endif

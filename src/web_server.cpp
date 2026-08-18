@@ -9,67 +9,169 @@ namespace
   WebServer server(80);
   WebStateReader leseStatus = nullptr;
   WebPwmWriter schreibePwm = nullptr;
+  WebModeWriter schreibeModus = nullptr;
+  WebTimeWriter schreibeZeit = nullptr;
+  WebCalibrationWriter schreibeKalibrierung = nullptr;
+  WebCalibrationSaver speichereKalibrierung = nullptr;
 
   const char WEB_INTERFACE[] PROGMEM = R"rawliteral(
 <!doctype html><html lang="de"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>H&amp;B Uhr</title><style>
-:root{color-scheme:dark;--bg:#111827;--panel:#1f2937;--line:#374151;--text:#f3f4f6;--muted:#9ca3af;--accent:#f59e0b;--bad:#f87171}
-*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top right,#243047,var(--bg) 55%);color:var(--text);font:16px system-ui,sans-serif;min-height:100vh;padding:2rem 1rem}
-main{max-width:620px;margin:auto}h1{font-size:clamp(2rem,8vw,3.5rem);letter-spacing:0;margin:0 0 .25rem}p{color:var(--muted)}
-.panel{background:rgba(31,41,55,.9);border:1px solid var(--line);padding:1rem;margin:1rem 0}.instruments{display:grid;grid-template-columns:1fr 1fr;gap:1rem}.instrument{min-width:0}.instrument button{width:100%;border:1px solid var(--line);background:#111827;color:var(--text);padding:.8rem;font:inherit;cursor:pointer}.instrument button.active{border-color:var(--accent);color:var(--accent)}label{display:block;color:var(--muted);margin:.8rem 0 .4rem}input{width:100%;background:#111827;border:1px solid var(--line);color:var(--text);font:inherit;padding:.8rem}.message{min-height:1.5rem;color:var(--bad)}small{color:var(--muted)}
-</style></head><body><main><h1>H&amp;B Uhr</h1><p>Kalibrierung der analogen Messwerke</p>
-<section class="panel"><div class="instruments"><div class="instrument"><button type="button" data-instrument="1">Instrument 1<br><small>Minuten</small></button><form data-form-instrument="1"><label for="pwm1">PWM-Wert</label><input id="pwm1" type="number" min="0" max="1023" required></form></div><div class="instrument"><button type="button" data-instrument="2">Instrument 2<br><small>Stunden</small></button><form data-form-instrument="2"><label for="pwm2">PWM-Wert</label><input id="pwm2" type="number" min="0" max="1023" required></form></div></div><div class="message" id="message"></div></section>
-<small>Aktualisierung jede Sekunde. PWM-Werte mit Enter setzen.</small></main><script>
-let state=null;const $=id=>document.getElementById(id);
-function choose(n){document.querySelectorAll('[data-instrument]').forEach(b=>b.classList.toggle('active',+b.dataset.instrument===n))}
-function render(){ $('pwm1').value=state.pwm.instrument1; $('pwm2').value=state.pwm.instrument2; choose(state.instrument) }
-async function refresh(){try{let r=await fetch('/api/state');if(!r.ok)throw Error();state=await r.json();render()}catch(e){$('message').textContent='Webserver nicht erreichbar'}}
-async function setPwm(instrument,input){$('message').textContent='';try{let r=await fetch('/api/state',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({instrument:instrument,pwm:Number(input.value)})});let data=await r.json();if(!r.ok)throw Error(data.error||'Fehler');state=data;render()}catch(err){$('message').textContent=err.message}}
-document.querySelectorAll('[data-instrument]').forEach(b=>b.onclick=()=>choose(+b.dataset.instrument));document.querySelectorAll('[data-form-instrument]').forEach(form=>form.onsubmit=e=>{e.preventDefault();setPwm(+form.dataset.formInstrument,form.querySelector('input'))});choose(1);refresh();setInterval(refresh,1000);
+:root{color-scheme:dark;--bg:#101820;--panel:#1b2a34;--line:#38505b;--text:#edf4f2;--muted:#9bb0b2;--accent:#f2a65a;--good:#77d6a5;--bad:#ff8c7a}
+*{box-sizing:border-box}body{margin:0;background:linear-gradient(135deg,#101820,#18313a 55%,#3b3029);color:var(--text);font:16px Georgia,serif;min-height:100vh;padding:1.5rem 1rem}
+main{max-width:980px;margin:auto}h1{font:700 clamp(2.3rem,7vw,4.5rem)/.95 Georgia,serif;letter-spacing:0;margin:0 0 .4rem}h2{font-size:1.35rem;margin:0 0 .8rem}p{color:var(--muted)}
+.panel{background:rgba(27,42,52,.94);border:1px solid var(--line);padding:1rem;margin:1rem 0;border-radius:6px}.toolbar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}.toolbar button,.table button{border:1px solid var(--line);background:#102028;color:var(--text);padding:.55rem .75rem;font:inherit;cursor:pointer;border-radius:4px}.toolbar button.active,.table button:hover{border-color:var(--accent);color:var(--accent)}
+.status{display:grid;grid-template-columns:repeat(3,1fr);gap:.75rem}.status strong{display:block;font-size:1.3rem;color:var(--accent)}.status span{color:var(--muted);font-size:.85rem}
+.time{display:flex;gap:.6rem;align-items:end;flex-wrap:wrap}.time label{display:grid;gap:.3rem;color:var(--muted)}input{width:100%;min-width:0;background:#102028;border:1px solid var(--line);color:var(--text);font:inherit;padding:.55rem;border-radius:4px}button{font:inherit}.table-wrap{overflow-x:auto}.table{width:100%;border-collapse:collapse}.table th,.table td{padding:.45rem;border-bottom:1px solid var(--line);text-align:left}.table th{color:var(--muted);font-weight:normal}.table input{width:7rem}.message{min-height:1.5rem;color:var(--good);margin-top:.7rem}.message.error{color:var(--bad)}small{color:var(--muted)}
++@media(max-width:600px){.status{grid-template-columns:1fr 1fr}.table th:nth-child(2),.table td:nth-child(2){display:none}}
++</style></head><body><main><h1>H&amp;B Uhr</h1><p>Kalibrierung und Test der beiden Dreheisenmesswerke</p>
++<section class="panel"><h2>Betriebsart</h2><div class="toolbar"><button data-mode="0">Normalbetrieb</button><button data-mode="1">Minuten kalibrieren</button><button data-mode="2">Stunden kalibrieren</button></div><div class="message" id="message"></div></section>
++<section class="panel"><h2>Status</h2><div class="status"><div><span>Dummy-Uhrzeit</span><strong id="clock">--:--</strong></div><div><span>Aktive Phase</span><strong id="phase">--</strong></div><div><span>Encoder / Punkt</span><strong id="point">--</strong></div></div><div class="time"><label>Stunde<input id="hour" type="number" min="0" max="23"></label><label>Minute<input id="minute" type="number" min="0" max="59"></label><button id="set-time">Zeit setzen</button></div></section>
++<section class="panel"><h2>Minutenpunkte</h2><div class="table-wrap"><table class="table"><thead><tr><th>Punkt</th><th>Position</th><th>PWM</th><th>Aktion</th></tr></thead><tbody id="minutes"></tbody></table></div></section>
++<section class="panel"><h2>Stundenpunkte</h2><div class="table-wrap"><table class="table"><thead><tr><th>Punkt</th><th>Position</th><th>PWM</th><th>Aktion</th></tr></thead><tbody id="hours"></tbody></table></div><button id="save">Alle Kalibrierwerte speichern</button></section>
++<section class="panel"><h2>Live-Ausgabe</h2><div class="time"><label>Instrument<input id="instrument" type="number" min="1" max="2" value="1"></label><label>PWM<input id="live-pwm" type="number" min="0" max="1023" value="0"></label><button id="live">PWM live testen</button></div></section>
++<small>Die Dummy-Uhrzeit bleibt nach dem Setzen stehen. Die Minutenpunkte werden in 5-Minuten-Schritten gespeichert, der Punkt 60 ist separat.</small></main><script>
+let state=null;const $=id=>document.getElementById(id);const phase=['Normalbetrieb','Minuten','Stunden'];
+function message(text,error=false){$('message').textContent=text;$('message').className=error?'message error':'message'}
+function row(instrument,index,value){const position=instrument===1?index*5:index;return `<tr><td>${index}</td><td>${position}${instrument===1?' min':' Uhr'}</td><td><input data-value="${instrument}-${index}" type="number" min="0" max="1023" value="${value}"></td><td><button data-live="${instrument}-${index}">Live</button></td></tr>`}
+function renderTable(instrument,values){$(instrument===1?'minutes':'hours').innerHTML=values.map((v,i)=>row(instrument,i,v)).join('')}
+function render(){if(!state)return;$('clock').textContent=String(state.dummyTime.hour).padStart(2,'0')+':'+String(state.dummyTime.minute).padStart(2,'0');$('phase').textContent=phase[state.mode]||'Unbekannt';$('point').textContent=state.mode===0?'PWM '+state.pwm.minutes+' / '+state.pwm.hours:state.calibrationIndex+' / 12';$('hour').value=state.dummyTime.hour;$('minute').value=state.dummyTime.minute;$('instrument').value=state.activeInstrument;$('live-pwm').value=state.activeInstrument===1?state.pwm.minutes:state.pwm.hours;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',+b.dataset.mode===state.mode));if(!document.activeElement||!document.activeElement.matches('input[data-value]')){renderTable(1,state.calibration.minutes);renderTable(2,state.calibration.hours)}}
+async function request(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error||'Anfrage fehlgeschlagen');return data}
+async function refresh(){try{const r=await fetch('/api/state');if(!r.ok)throw Error();state=await r.json();render()}catch(e){message('Webserver nicht erreichbar',true)}}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=async()=>{try{state=await request('/api/mode',{mode:+b.dataset.mode});render();message('Betriebsart gesetzt')}catch(e){message(e.message,true)}});
+$('set-time').onclick=async()=>{try{state=await request('/api/time',{hour:+$('hour').value,minute:+$('minute').value});render();message('Uhrzeit gesetzt')}catch(e){message(e.message,true)}};
+$('save').onclick=async()=>{try{state=await request('/api/calibration/save',{});render();message('Kalibrierwerte gespeichert')}catch(e){message(e.message,true)}};
+$('live').onclick=async()=>{try{state=await request('/api/state',{instrument:+$('instrument').value,pwm:+$('live-pwm').value});render();message('PWM ausgegeben')}catch(e){message(e.message,true)}};
+document.addEventListener('click',async e=>{if(!e.target.matches('[data-live]'))return;const [instrument,index]=e.target.dataset.live.split('-').map(Number);const input=document.querySelector(`[data-value="${instrument}-${index}"]`);try{state=await request('/api/calibration',{instrument:instrument,index:index,pwm:+input.value,persist:false});render();message('Punkt live ausgegeben')}catch(err){message(err.message,true)}});
+refresh();setInterval(refresh,2000);
 </script></body></html>)rawliteral";
 
-  void sendeStatus()
+  void sendState()
   {
     const WebServerState state = leseStatus();
     JsonDocument status;
-    status["instrument"] = state.instrument;
-    status["pwm"]["instrument1"] = state.pwmInstrument1;
-    status["pwm"]["instrument2"] = state.pwmInstrument2;
+    status["mode"] = state.mode;
+    status["calibrationIndex"] = state.calibrationIndex;
+    status["dummyTime"]["hour"] = state.dummyHour;
+    status["dummyTime"]["minute"] = state.dummyMinute;
+    status["activeInstrument"] = state.activeInstrument;
+    status["pwm"]["minutes"] = state.pwmMinutes;
+    status["pwm"]["hours"] = state.pwmHours;
+    JsonArray minutes = status["calibration"]["minutes"].to<JsonArray>();
+    JsonArray hours = status["calibration"]["hours"].to<JsonArray>();
+    for (size_t index = 0; index < 13; ++index)
+    {
+      minutes.add(state.minutes[index]);
+      hours.add(state.hours[index]);
+    }
     String response;
     serializeJson(status, response);
     server.send(200, "application/json", response);
   }
 
-  void setzeStatus()
+  bool parseRequest(JsonDocument &request)
+  {
+    if (deserializeJson(request, server.arg("plain")) == DeserializationError::Ok)
+      return true;
+    server.send(400, "application/json", R"({"error":"Ungueltiges JSON"})");
+    return false;
+  }
+
+  void setPwm()
   {
     JsonDocument request;
-    if (deserializeJson(request, server.arg("plain")) != DeserializationError::Ok)
-    {
-      server.send(400, "application/json", R"({"error":"Ungueltiges JSON"})");
+    if (!parseRequest(request))
       return;
-    }
-
     const int instrument = request["instrument"] | 0;
     const int pwm = request["pwm"] | -1;
-    if ((instrument != 1 && instrument != 2) || pwm < 0 || pwm > 1023 || !schreibePwm(instrument, pwm))
+    if (!schreibePwm(instrument, pwm))
     {
       server.send(400, "application/json", R"({"error":"Instrument oder PWM ungueltig"})");
       return;
     }
+    sendState();
+  }
 
-    sendeStatus();
+  void setMode()
+  {
+    JsonDocument request;
+    if (!parseRequest(request))
+      return;
+    const int mode = request["mode"] | -1;
+    if (mode < 0 || mode > 2 || !schreibeModus(static_cast<uint8_t>(mode)))
+    {
+      server.send(400, "application/json", R"({"error":"Betriebsart ungueltig"})");
+      return;
+    }
+    sendState();
+  }
+
+  void setTime()
+  {
+    JsonDocument request;
+    if (!parseRequest(request))
+      return;
+    const int hour = request["hour"] | -1;
+    const int minute = request["minute"] | -1;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || !schreibeZeit(hour, minute))
+    {
+      server.send(400, "application/json", R"({"error":"Uhrzeit ungueltig"})");
+      return;
+    }
+    sendState();
+  }
+
+  void setCalibration()
+  {
+    JsonDocument request;
+    if (!parseRequest(request))
+      return;
+    const int instrument = request["instrument"] | 0;
+    const int index = request["index"] | -1;
+    const int pwm = request["pwm"] | -1;
+    const bool persist = request["persist"] | false;
+    if (index < 0 || index >= 13 || !schreibeKalibrierung(instrument, static_cast<uint8_t>(index), pwm, persist))
+    {
+      server.send(400, "application/json", R"({"error":"Kalibrierwert ungueltig"})");
+      return;
+    }
+    sendState();
+  }
+
+  void saveCalibration()
+  {
+    if (!speichereKalibrierung())
+    {
+      server.send(500, "application/json", R"({"error":"Speichern fehlgeschlagen"})");
+      return;
+    }
+    sendState();
   }
 }
 
-void richteWebserverEin(WebStateReader stateReader, WebPwmWriter pwmWriter)
+void richteWebserverEin(
+    WebStateReader stateReader,
+    WebPwmWriter pwmWriter,
+    WebModeWriter modeWriter,
+    WebTimeWriter timeWriter,
+    WebCalibrationWriter calibrationWriter,
+    WebCalibrationSaver calibrationSaver)
 {
   leseStatus = stateReader;
   schreibePwm = pwmWriter;
+  schreibeModus = modeWriter;
+  schreibeZeit = timeWriter;
+  schreibeKalibrierung = calibrationWriter;
+  speichereKalibrierung = calibrationSaver;
   server.on("/", HTTP_GET, []()
             { server.send_P(200, "text/html; charset=utf-8", WEB_INTERFACE); });
-  server.on("/api/state", HTTP_GET, sendeStatus);
-  server.on("/api/state", HTTP_POST, setzeStatus);
+  server.on("/api/state", HTTP_GET, sendState);
+  server.on("/api/state", HTTP_POST, setPwm);
+  server.on("/api/mode", HTTP_POST, setMode);
+  server.on("/api/time", HTTP_POST, setTime);
+  server.on("/api/calibration", HTTP_POST, setCalibration);
+  server.on("/api/calibration/save", HTTP_POST, saveCalibration);
   server.onNotFound([]()
                     { server.send(404, "application/json", R"({"error":"Nicht gefunden"})"); });
   server.begin();
