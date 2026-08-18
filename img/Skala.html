@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Technische Zeichnung – Stunden- und Minutenskala</title>
+
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: white;
+      }
+
+      svg {
+        display: block;
+        width: 150mm;
+        height: 200mm;
+        background: white;
+      }
+
+      .frame {
+        fill: none;
+        stroke: #000;
+        stroke-width: 0.2;
+      }
+
+      .centerline {
+        stroke: #777;
+        stroke-width: 0.15;
+        stroke-dasharray: 1.5 1.2;
+      }
+
+      .pivot {
+        fill: #ff0000;
+        stroke: none;
+      }
+
+      .arc {
+        fill: none;
+        stroke: #000;
+        stroke-width: 0.25;
+      }
+
+      .hour-major,
+      .minute-major {
+        stroke: #000;
+        stroke-width: 0.35;
+        stroke-linecap: butt;
+      }
+
+      .hour-minor,
+      .minute-minor {
+        stroke: #000;
+        stroke-width: 0.2;
+        stroke-linecap: butt;
+      }
+
+      .hour-text {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 4px;
+        fill: #000;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+
+      .minute-text {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 3.6px;
+        fill: #000;
+        text-anchor: middle;
+        dominant-baseline: middle;
+      }
+    </style>
+  </head>
+
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" width="150mm" height="200mm" viewBox="0 0 150 200">
+      <defs>
+        <!-- Außenrahmen -->
+        <style>
+          .frame {
+            fill: none;
+            stroke: #000;
+            stroke-width: 0.2;
+          }
+
+          .centerline {
+            stroke: #777;
+            stroke-width: 0.15;
+            stroke-dasharray: 1.5 1.2;
+          }
+
+          .pivot {
+            fill: #ff0000;
+          }
+
+          .arc {
+            fill: none;
+            stroke: #000;
+            stroke-width: 0.25;
+          }
+
+          .hour-major,
+          .minute-major {
+            stroke: #000;
+            stroke-width: 0.35;
+          }
+
+          .hour-minor,
+          .minute-minor {
+            stroke: #000;
+            stroke-width: 0.2;
+          }
+
+          .hour-text {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 4px;
+            fill: #000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+          }
+
+          .minute-text {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 3.6px;
+            fill: #000;
+            text-anchor: middle;
+            dominant-baseline: middle;
+          }
+        </style>
+      </defs>
+
+      <!-- =========================================================
+         RAHMEN
+         ========================================================= -->
+
+      <rect class="frame" x="0.5" y="0.5" width="149" height="84" />
+
+      <rect class="frame" x="0.5" y="100.5" width="149" height="84" />
+
+      <!-- =========================================================
+         MITTELLINIEN
+         ========================================================= -->
+
+      <!-- Skala 1: X=75 von Y=0.5 bis Y=100 -->
+      <line class="centerline" x1="75" y1="0.5" x2="75" y2="100" />
+
+      <!-- Skala 2: X=75 von Y=100.5 bis Y=200 -->
+      <line class="centerline" x1="75" y1="100.5" x2="75" y2="200" />
+
+      <!-- =========================================================
+         SKALEN
+         Werden per JavaScript exakt trigonometrisch erzeugt.
+         ========================================================= -->
+
+      <g id="hour-scale"></g>
+      <g id="minute-scale"></g>
+
+      <!-- =========================================================
+         DREHPUNKTE
+         ========================================================= -->
+
+      <circle class="pivot" cx="75" cy="100" r="1.5" />
+
+      <circle class="pivot" cx="75" cy="200" r="1.5" />
+    </svg>
+
+    <script>
+      /*
+       * ==============================================================
+       * TECHNISCHE GEOMETRIE
+       * ==============================================================
+       *
+       * Mittelpunkt:
+       *     (75,100) bzw. (75,200)
+       *
+       * Der sichtbare Skalenbogen erstreckt sich symmetrisch über
+       * 120°:
+       *
+       *       0° = 210°
+       *       6/30 = 270°
+       *       12/60 = 330°
+       *
+       * Dadurch liegt der mittlere Wert exakt auf X=75.
+       *
+       * SVG-Koordinatensystem:
+       *     X nach rechts
+       *     Y nach unten
+       *
+       * Deshalb erzeugt y = cy + r * sin(angle) die obere Wölbung
+       * für Winkel zwischen 180° und 360°.
+       *
+       * Hauptbogen:
+       *     Radius 82 mm
+       *
+       * Teilstriche:
+       *     Außenradius 92 mm
+       *     Innenradius 82 mm
+       *
+       * Ziffern:
+       *     Radius 100 mm
+       *
+       * Alle Positionen werden aus sin/cos berechnet.
+       */
+
+      /* --------------------------------------------------------------
+   Allgemeine trigonometrische Hilfsfunktionen
+   -------------------------------------------------------------- */
+
+      function point(cx, cy, radius, degrees) {
+        const a = (degrees * Math.PI) / 180;
+
+        return {
+          x: cx + radius * Math.cos(a),
+          y: cy + radius * Math.sin(a),
+        };
+      }
+
+      function createElement(name, attributes) {
+        const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+
+        for (const [key, value] of Object.entries(attributes)) {
+          el.setAttribute(key, value);
+        }
+
+        return el;
+      }
+
+      /* --------------------------------------------------------------
+   Hauptbogen
+   -------------------------------------------------------------- */
+
+      function addArc(parent, cx, cy, radius) {
+        const start = point(cx, cy, radius, 210);
+        const end = point(cx, cy, radius, 330);
+
+        const path = createElement('path', {
+          class: 'arc',
+          d: `M ${start.x.toFixed(5)} ${start.y.toFixed(5)}
+             A ${radius} ${radius}
+             0 0 1
+             ${end.x.toFixed(5)} ${end.y.toFixed(5)}`,
+        });
+
+        parent.appendChild(path);
+      }
+
+      /* --------------------------------------------------------------
+   Radialen Teilstrich erzeugen
+   -------------------------------------------------------------- */
+
+      function addTick(parent, cx, cy, angle, innerRadius, outerRadius, className) {
+        const p1 = point(cx, cy, innerRadius, angle);
+        const p2 = point(cx, cy, outerRadius, angle);
+
+        const line = createElement('line', {
+          class: className,
+          x1: p1.x.toFixed(5),
+          y1: p1.y.toFixed(5),
+          x2: p2.x.toFixed(5),
+          y2: p2.y.toFixed(5),
+        });
+
+        parent.appendChild(line);
+      }
+
+      /* --------------------------------------------------------------
+   Beschriftung
+   -------------------------------------------------------------- */
+
+      function addText(parent, cx, cy, radius, angle, text, className) {
+        const p = point(cx, cy, radius, angle);
+
+        const t = createElement('text', {
+          class: className,
+          x: p.x.toFixed(5),
+          y: p.y.toFixed(5),
+        });
+
+        t.textContent = text;
+
+        parent.appendChild(t);
+      }
+
+      /* ==============================================================
+   STUNDENSKALA
+   ============================================================== */
+
+      function createHourScale() {
+        const parent = document.getElementById('hour-scale');
+
+        const cx = 75;
+        const cy = 100;
+
+        const arcRadius = 82;
+
+        /*
+         * 0 ... 12
+         *
+         * Winkel:
+         *     0  -> 210°
+         *     6  -> 270°
+         *     12 -> 330°
+         *
+         * 10° pro Stunde.
+         */
+
+        addArc(parent, cx, cy, arcRadius);
+
+        /* ----------------------------------------------------------
+       49 Teilstriche:
+       12 Stunden × 4 Intervalle + Endpunkt
+       ---------------------------------------------------------- */
+
+        for (let i = 0; i <= 48; i++) {
+          const hourFraction = i / 4;
+          const angle = 210 + hourFraction * 10;
+
+          const isMajor = i % 4 === 0;
+
+          if (isMajor) {
+            addTick(parent, cx, cy, angle, 82, 92, 'hour-major');
+          } else {
+            addTick(parent, cx, cy, angle, 82, 89, 'hour-minor');
+          }
+        }
+
+        /* ----------------------------------------------------------
+       Ziffern 0 ... 12
+       ---------------------------------------------------------- */
+
+        for (let hour = 0; hour <= 12; hour++) {
+          const angle = 210 + hour * 10;
+
+          addText(parent, cx, cy, 96.5, angle, hour, 'hour-text');
+        }
+      }
+
+      /* ==============================================================
+   MINUTENSKALA
+   ============================================================== */
+
+      function createMinuteScale() {
+        const parent = document.getElementById('minute-scale');
+
+        const cx = 75;
+        const cy = 200;
+
+        const arcRadius = 82;
+
+        addArc(parent, cx, cy, arcRadius);
+
+        /*
+         * 0 ... 60 Minuten
+         *
+         * 60 Minuten werden exakt linear auf 120°
+         * abgebildet:
+         *
+         *     0  -> 210°
+         *    30  -> 270°
+         *    60  -> 330°
+         *
+         * Pro Minute:
+         *
+         *     120° / 60 = 2°
+         *
+         * Die rechte Hälfte ist damit mathematisch exakt
+         * spiegelsymmetrisch zur linken.
+         */
+
+        /* ----------------------------------------------------------
+       Alle 61 Minutenstriche
+       ---------------------------------------------------------- */
+
+        for (let minute = 0; minute <= 60; minute++) {
+          const angle = 210 + minute * 2;
+
+          const isMajor = minute % 5 === 0;
+
+          if (isMajor) {
+            addTick(parent, cx, cy, angle, 82, 92, 'minute-major');
+          } else {
+            addTick(parent, cx, cy, angle, 82, 88.5, 'minute-minor');
+          }
+        }
+
+        /* ----------------------------------------------------------
+       Beschriftung 0 ... 60 in 5er-Schritten
+       ---------------------------------------------------------- */
+
+        for (let minute = 0; minute <= 60; minute += 5) {
+          const angle = 210 + minute * 2;
+
+          addText(parent, cx, cy, 96.5, angle, minute, 'minute-text');
+        }
+      }
+
+      /* --------------------------------------------------------------
+   Zeichnung erzeugen
+   -------------------------------------------------------------- */
+
+      createHourScale();
+      createMinuteScale();
+    </script>
+  </body>
+</html>
