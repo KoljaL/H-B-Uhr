@@ -21,8 +21,8 @@
 #define STATIC_SUBNET ""
 #endif
 
-constexpr int PIN_MINUTES = 13;
-constexpr int PIN_HOURS = 14;
+constexpr int PIN_MINUTES = 14;
+constexpr int PIN_HOURS = 13;
 constexpr int PWM_FREQ = 500;
 constexpr int PWM_RESOLUTION = 10;
 constexpr int PWM_MAX = (1 << PWM_RESOLUTION) - 1;
