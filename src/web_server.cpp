@@ -13,6 +13,7 @@ namespace
   WebTimeWriter schreibeZeit = nullptr;
   WebCalibrationWriter schreibeKalibrierung = nullptr;
   WebCalibrationSaver speichereKalibrierung = nullptr;
+  WebMotionWriter schreibeBewegung = nullptr;
 
   const char WEB_INTERFACE[] PROGMEM = R"rawliteral(
 <!doctype html><html lang="de"><head><meta charset="utf-8">
@@ -33,18 +34,20 @@ main{max-width:980px;margin:auto}h1{font:700 clamp(2.3rem,7vw,4.5rem)/.95 Georgi
 <section class="panel"><h2>Stundenpunkte</h2><div class="table-wrap"><table class="table"><thead><tr><th>Punkt</th><th>Position</th><th>PWM</th><th>Aktion</th></tr></thead><tbody id="hours"></tbody></table></div><button id="save">Alle Kalibrierwerte speichern</button></section>
 </div>
 <section class="panel"><h2>Live-Ausgabe</h2><div class="time"><label>Instrument<input id="instrument" type="number" min="1" max="2" value="1"></label><label>PWM<input id="live-pwm" type="number" min="0" max="1023" value="0"></label><button id="live">PWM live testen</button></div></section>
+<section class="panel"><h2>Bewegungsprofil</h2><div class="time"><label class="toggle"><input id="motion-enabled" type="checkbox">Aktiv</label><label>Intervall (ms)<input id="motion-interval" type="number" min="1" max="1000"></label><label>Beschleunigung<input id="motion-accel" type="number" min="1" max="1023"></label><label>Max. Geschwindigkeit<input id="motion-maxspeed" type="number" min="1" max="1023"></label><button id="motion-save">&Uuml;bernehmen</button></div></section>
 <small>Die Dummy-Uhrzeit bleibt nach dem Setzen stehen. Die Minutenpunkte werden in 5-Minuten-Schritten gespeichert, der Punkt 60 ist separat.</small></main><script>
 let state=null;const $=id=>document.getElementById(id);const phase=['Normalbetrieb','Minuten','Stunden'];
 function message(text,error=false){$('message').textContent=text;$('message').className=error?'message error':'message'}
 function row(instrument,index,value){const position=instrument===1?index*5:index;return `<tr><td>${index}</td><td>${position}${instrument===1?' min':' Uhr'}</td><td><input data-value="${instrument}-${index}" type="number" min="0" max="1023" value="${value}"></td><td><button data-live="${instrument}-${index}">Live</button></td></tr>`}
 function renderTable(instrument,values){$(instrument===1?'minutes':'hours').innerHTML=values.map((v,i)=>row(instrument,i,v)).join('')}
-function render(){if(!state)return;$('clock').textContent=String(state.dummyTime.hour).padStart(2,'0')+':'+String(state.dummyTime.minute).padStart(2,'0');$('phase').textContent=phase[state.mode]||'Unbekannt';$('point').textContent=state.mode===0?'PWM '+state.pwm.minutes+' / '+state.pwm.hours:state.calibrationIndex+' / 12';if(!document.activeElement||document.activeElement!==$('hour')){$('hour').value=state.dummyTime.hour;$('hour-val').textContent=state.dummyTime.hour}if(!document.activeElement||document.activeElement!==$('minute')){$('minute').value=state.dummyTime.minute;$('minute-val').textContent=state.dummyTime.minute}$('instrument').value=state.activeInstrument;$('live-pwm').value=state.activeInstrument===1?state.pwm.minutes:state.pwm.hours;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',+b.dataset.mode===state.mode));if(!document.activeElement||!document.activeElement.matches('input[data-value]')){renderTable(1,state.calibration.minutes);renderTable(2,state.calibration.hours)}}
+function render(){if(!state)return;$('clock').textContent=String(state.dummyTime.hour).padStart(2,'0')+':'+String(state.dummyTime.minute).padStart(2,'0');$('phase').textContent=phase[state.mode]||'Unbekannt';$('point').textContent=state.mode===0?'PWM '+state.pwm.minutes+' / '+state.pwm.hours:state.calibrationIndex+' / 12';if(!document.activeElement||document.activeElement!==$('hour')){$('hour').value=state.dummyTime.hour;$('hour-val').textContent=state.dummyTime.hour}if(!document.activeElement||document.activeElement!==$('minute')){$('minute').value=state.dummyTime.minute;$('minute-val').textContent=state.dummyTime.minute}$('instrument').value=state.activeInstrument;$('live-pwm').value=state.activeInstrument===1?state.pwm.minutes:state.pwm.hours;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',+b.dataset.mode===state.mode));if(!document.activeElement||!document.activeElement.matches('input[data-value]')){renderTable(1,state.calibration.minutes);renderTable(2,state.calibration.hours)}if(!document.activeElement||!document.activeElement.matches('#motion-enabled,#motion-interval,#motion-accel,#motion-maxspeed')){$('motion-enabled').checked=state.motion.enabled;$('motion-interval').value=state.motion.intervalMs;$('motion-accel').value=state.motion.accel;$('motion-maxspeed').value=state.motion.maxSpeed}}
 async function request(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error||'Anfrage fehlgeschlagen');return data}
 async function refresh(){try{const r=await fetch('/api/state');if(!r.ok)throw Error();state=await r.json();render()}catch(e){message('Webserver nicht erreichbar',true)}}
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=async()=>{try{state=await request('/api/mode',{mode:+b.dataset.mode});render();message('Betriebsart gesetzt')}catch(e){message(e.message,true)}});
 $('set-time').onclick=async()=>{try{state=await request('/api/time',{hour:+$('hour').value,minute:+$('minute').value});render();message('Uhrzeit gesetzt')}catch(e){message(e.message,true)}};
 $('save').onclick=async()=>{try{state=await request('/api/calibration/save',{});render();message('Kalibrierwerte gespeichert')}catch(e){message(e.message,true)}};
 $('live').onclick=async()=>{try{state=await request('/api/state',{instrument:+$('instrument').value,pwm:+$('live-pwm').value});render();message('PWM ausgegeben')}catch(e){message(e.message,true)}};
+$('motion-save').onclick=async()=>{try{state=await request('/api/motion',{enabled:$('motion-enabled').checked,intervalMs:+$('motion-interval').value,accel:+$('motion-accel').value,maxSpeed:+$('motion-maxspeed').value});render();message('Bewegungsprofil aktualisiert')}catch(e){message(e.message,true)}};
 document.addEventListener('click',async e=>{if(!e.target.matches('[data-live]'))return;const [instrument,index]=e.target.dataset.live.split('-').map(Number);const input=document.querySelector(`[data-value="${instrument}-${index}"]`);try{state=await request('/api/calibration',{instrument:instrument,index:index,pwm:+input.value,persist:false});render();message('Punkt live ausgegeben')}catch(err){message(err.message,true)}});
 $('hour').oninput=()=>$('hour-val').textContent=$('hour').value;
 $('minute').oninput=()=>$('minute-val').textContent=$('minute').value;
@@ -65,6 +68,12 @@ refresh();setPolling(true);
     status["activeInstrument"] = state.activeInstrument;
     status["pwm"]["minutes"] = state.pwmMinutes;
     status["pwm"]["hours"] = state.pwmHours;
+    status["pwm"]["targetMinutes"] = state.targetPwmMinutes;
+    status["pwm"]["targetHours"] = state.targetPwmHours;
+    status["motion"]["enabled"] = state.motionEnabled;
+    status["motion"]["intervalMs"] = state.motionIntervalMs;
+    status["motion"]["accel"] = state.motionAccel;
+    status["motion"]["maxSpeed"] = state.motionMaxSpeed;
     JsonArray minutes = status["calibration"]["minutes"].to<JsonArray>();
     JsonArray hours = status["calibration"]["hours"].to<JsonArray>();
     for (size_t index = 0; index < 13; ++index)
@@ -155,6 +164,23 @@ refresh();setPolling(true);
     }
     sendState();
   }
+
+  void setMotion()
+  {
+    JsonDocument request;
+    if (!parseRequest(request))
+      return;
+    const bool enabled = request["enabled"] | true;
+    const uint32_t intervalMs = request["intervalMs"] | 10;
+    const int accel = request["accel"] | 8;
+    const int maxSpeed = request["maxSpeed"] | 20;
+    if (!schreibeBewegung(enabled, intervalMs, accel, maxSpeed))
+    {
+      server.send(400, "application/json", R"({"error":"Bewegungsparameter ungueltig"})");
+      return;
+    }
+    sendState();
+  }
 }
 
 void richteWebserverEin(
@@ -163,7 +189,8 @@ void richteWebserverEin(
     WebModeWriter modeWriter,
     WebTimeWriter timeWriter,
     WebCalibrationWriter calibrationWriter,
-    WebCalibrationSaver calibrationSaver)
+    WebCalibrationSaver calibrationSaver,
+    WebMotionWriter motionWriter)
 {
   leseStatus = stateReader;
   schreibePwm = pwmWriter;
@@ -171,6 +198,7 @@ void richteWebserverEin(
   schreibeZeit = timeWriter;
   schreibeKalibrierung = calibrationWriter;
   speichereKalibrierung = calibrationSaver;
+  schreibeBewegung = motionWriter;
   server.on("/", HTTP_GET, []()
             { server.send_P(200, "text/html; charset=utf-8", WEB_INTERFACE); });
   server.on("/api/state", HTTP_GET, sendState);
@@ -179,6 +207,7 @@ void richteWebserverEin(
   server.on("/api/time", HTTP_POST, setTime);
   server.on("/api/calibration", HTTP_POST, setCalibration);
   server.on("/api/calibration/save", HTTP_POST, saveCalibration);
+  server.on("/api/motion", HTTP_POST, setMotion);
   server.onNotFound([]()
                     { server.send(404, "application/json", R"({"error":"Nicht gefunden"})"); });
   server.begin();

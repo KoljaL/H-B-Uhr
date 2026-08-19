@@ -13,6 +13,12 @@ struct WebServerState
   int activeInstrument;
   int pwmMinutes;
   int pwmHours;
+  int targetPwmMinutes;
+  int targetPwmHours;
+  bool motionEnabled;
+  uint32_t motionIntervalMs;
+  int motionAccel;
+  int motionMaxSpeed;
   uint16_t minutes[13];
   uint16_t hours[13];
 };
@@ -23,6 +29,7 @@ using WebModeWriter = bool (*)(uint8_t mode);
 using WebTimeWriter = bool (*)(uint8_t hour, uint8_t minute);
 using WebCalibrationWriter = bool (*)(int instrument, uint8_t index, int pwm, bool persist);
 using WebCalibrationSaver = bool (*)();
+using WebMotionWriter = bool (*)(bool enabled, uint32_t intervalMs, int accel, int maxSpeed);
 
 void richteWebserverEin(
     WebStateReader stateReader,
@@ -30,7 +37,8 @@ void richteWebserverEin(
     WebModeWriter modeWriter,
     WebTimeWriter timeWriter,
     WebCalibrationWriter calibrationWriter,
-    WebCalibrationSaver calibrationSaver);
+    WebCalibrationSaver calibrationSaver,
+    WebMotionWriter motionWriter);
 void bearbeiteWebserver();
 
 #endif

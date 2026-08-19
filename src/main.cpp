@@ -41,6 +41,14 @@ constexpr char AP_PASSWORD[] = "hb-uhr-setup";
 constexpr size_t CALIBRATION_POINTS = 13;
 constexpr uint32_t CALIBRATION_VERSION = 1;
 
+constexpr bool ENABLE_MOTION_PROFILE = true;
+constexpr unsigned long MOTION_INTERVAL_MS_DEFAULT = 10;
+constexpr int MOTION_ACCEL_DEFAULT = 8;
+constexpr int MOTION_MAX_SPEED_DEFAULT = 20;
+constexpr unsigned long MOTION_INTERVAL_MS_MAX = 1000;
+constexpr int MOTION_ACCEL_MAX = PWM_MAX;
+constexpr int MOTION_MAX_SPEED_MAX = PWM_MAX;
+
 AiEsp32RotaryEncoder rotaryEncoder(
     ENCODER_A_PIN,
     ENCODER_B_PIN,
@@ -71,6 +79,15 @@ uint8_t dummyMinute = 0;
 int activeInstrument = 1;
 int pwmMinutes = 0;
 int pwmHours = 0;
+bool motionProfileEnabled = ENABLE_MOTION_PROFILE;
+unsigned long motionIntervalMs = MOTION_INTERVAL_MS_DEFAULT;
+int motionAccel = MOTION_ACCEL_DEFAULT;
+int motionMaxSpeed = MOTION_MAX_SPEED_DEFAULT;
+int targetPwmMinutes = 0;
+int targetPwmHours = 0;
+int motionVelocityMinutes = 0;
+int motionVelocityHours = 0;
+unsigned long lastMotionUpdateAt = 0;
 int lastEncoderValue = -1;
 int lastDisplayedHour = -1;
 int lastDisplayedMinute = -1;
@@ -105,6 +122,61 @@ void writeInstrument(int instrument, int value)
     pwmHours = pwmValue;
     ledcWrite(PIN_HOURS, pwmValue);
   }
+}
+
+// Trapezoidal-profile step: accelerates, cruises, then brakes to stop exactly at target.
+int stepMotionAxis(int currentPos, int &velocity, int target)
+{
+  const int distance = target - currentPos;
+  if (distance == 0)
+  {
+    velocity = 0;
+    return currentPos;
+  }
+
+  const int direction = distance > 0 ? 1 : -1;
+  const int distanceAbs = abs(distance);
+  const int accel = max(1, motionAccel);
+  int speedAbs = abs(velocity);
+  const int brakingDistance = (speedAbs * speedAbs) / (2 * accel);
+
+  if (distanceAbs <= brakingDistance || distanceAbs <= speedAbs)
+    speedAbs = max(0, speedAbs - accel);
+  else if (speedAbs < motionMaxSpeed)
+    speedAbs = min(motionMaxSpeed, speedAbs + accel);
+
+  if (speedAbs > distanceAbs)
+    speedAbs = distanceAbs;
+
+  velocity = direction * speedAbs;
+  int nextPos = currentPos + velocity;
+
+  if ((direction > 0 && nextPos >= target) || (direction < 0 && nextPos <= target))
+  {
+    nextPos = target;
+    velocity = 0;
+  }
+
+  return nextPos;
+}
+
+void updateInstrumentMotion()
+{
+  if (!motionProfileEnabled)
+    return;
+
+  const unsigned long now = millis();
+  if (now - lastMotionUpdateAt < motionIntervalMs)
+    return;
+  lastMotionUpdateAt = now;
+
+  const int nextMinutes = stepMotionAxis(pwmMinutes, motionVelocityMinutes, targetPwmMinutes);
+  if (nextMinutes != pwmMinutes)
+    writeInstrument(1, nextMinutes);
+
+  const int nextHours = stepMotionAxis(pwmHours, motionVelocityHours, targetPwmHours);
+  if (nextHours != pwmHours)
+    writeInstrument(2, nextHours);
 }
 
 uint16_t interpolate(uint16_t start, uint16_t end, uint16_t numerator, uint16_t denominator)
@@ -191,18 +263,24 @@ void applyNormalTime()
   const uint8_t hour12 = dummyHour % 12;
   const uint8_t hourIndex = dummyHour == 12 ? 12 : hour12;
   const uint8_t nextHourIndex = hourIndex == 12 ? 1 : hourIndex + 1;
-  const uint8_t quarter = dummyMinute / 15;
   const uint16_t hourPwm = interpolate(
       calibration.hours[hourIndex],
       calibration.hours[nextHourIndex],
-      quarter,
-      4);
+      dummyMinute,
+      60);
 
-  writeInstrument(1, minutePwm);
-  writeInstrument(2, hourPwm);
+  targetPwmMinutes = minutePwm;
+  targetPwmHours = hourPwm;
+
+  if (!motionProfileEnabled)
+  {
+    writeInstrument(1, minutePwm);
+    writeInstrument(2, hourPwm);
+  }
+
   lastDisplayedHour = dummyHour;
   lastDisplayedMinute = dummyMinute;
-  Serial.printf("[UHR] %02u:%02u | Minuten PWM %u | Stunden PWM %u\n",
+  Serial.printf("[UHR] %02u:%02u | Minuten PWM-Ziel %u | Stunden PWM-Ziel %u\n",
                 dummyHour,
                 dummyMinute,
                 minutePwm,
@@ -313,6 +391,12 @@ WebServerState readWebState()
   state.activeInstrument = activeInstrument;
   state.pwmMinutes = pwmMinutes;
   state.pwmHours = pwmHours;
+  state.targetPwmMinutes = targetPwmMinutes;
+  state.targetPwmHours = targetPwmHours;
+  state.motionEnabled = motionProfileEnabled;
+  state.motionIntervalMs = motionIntervalMs;
+  state.motionAccel = motionAccel;
+  state.motionMaxSpeed = motionMaxSpeed;
   memcpy(state.minutes, calibration.minutes, sizeof(calibration.minutes));
   memcpy(state.hours, calibration.hours, sizeof(calibration.hours));
   return state;
@@ -372,6 +456,24 @@ bool writeWebCalibration(int instrument, uint8_t index, int value, bool persist)
 bool saveWebCalibration()
 {
   saveCalibration();
+  return true;
+}
+
+bool setWebMotion(bool enabled, uint32_t intervalMs, int accel, int maxSpeed)
+{
+  const uint32_t clampedInterval = constrain(intervalMs, 1u, static_cast<uint32_t>(MOTION_INTERVAL_MS_MAX));
+  const int clampedAccel = constrain(accel, 1, MOTION_ACCEL_MAX);
+  const int clampedMaxSpeed = constrain(maxSpeed, 1, MOTION_MAX_SPEED_MAX);
+
+  motionProfileEnabled = enabled;
+  motionIntervalMs = clampedInterval;
+  motionAccel = clampedAccel;
+  motionMaxSpeed = clampedMaxSpeed;
+
+  preferences.putBool("motionEn", motionProfileEnabled);
+  preferences.putUInt("motionInt", clampedInterval);
+  preferences.putInt("motionAcc", clampedAccel);
+  preferences.putInt("motionMax", clampedMaxSpeed);
   return true;
 }
 
@@ -442,6 +544,11 @@ void setup()
     dummyMinute = 0;
   }
 
+  motionProfileEnabled = preferences.getBool("motionEn", ENABLE_MOTION_PROFILE);
+  motionIntervalMs = constrain(preferences.getUInt("motionInt", MOTION_INTERVAL_MS_DEFAULT), 1u, static_cast<uint32_t>(MOTION_INTERVAL_MS_MAX));
+  motionAccel = constrain(preferences.getInt("motionAcc", MOTION_ACCEL_DEFAULT), 1, MOTION_ACCEL_MAX);
+  motionMaxSpeed = constrain(preferences.getInt("motionMax", MOTION_MAX_SPEED_DEFAULT), 1, MOTION_MAX_SPEED_MAX);
+
   ledcAttach(PIN_MINUTES, PWM_FREQ, PWM_RESOLUTION);
   ledcAttach(PIN_HOURS, PWM_FREQ, PWM_RESOLUTION);
   writeInstrument(1, 0);
@@ -455,7 +562,7 @@ void setup()
   rotaryEncoder.setEncoderValue(0);
 
   startWifi();
-  richteWebserverEin(readWebState, writeWebPwm, setWebMode, setWebTime, writeWebCalibration, saveWebCalibration);
+  richteWebserverEin(readWebState, writeWebPwm, setWebMode, setWebTime, writeWebCalibration, saveWebCalibration, setWebMotion);
   applyNormalTime();
   Serial.printf("PWM-Bereich: 0..%d | Webserver bereit\n", PWM_MAX);
 }
@@ -467,7 +574,10 @@ void loop()
   handleEncoderButton();
   handleEncoder();
 
-  if (operatingMode == OperatingMode::Normal &&
-      (dummyHour != lastDisplayedHour || dummyMinute != lastDisplayedMinute))
-    applyNormalTime();
+  if (operatingMode == OperatingMode::Normal)
+  {
+    if (dummyHour != lastDisplayedHour || dummyMinute != lastDisplayedMinute)
+      applyNormalTime();
+    updateInstrumentMotion();
+  }
 }
