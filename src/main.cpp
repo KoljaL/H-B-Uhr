@@ -109,7 +109,8 @@ bool validPwm(int value)
   return value >= 0 && value <= PWM_MAX;
 }
 
-void writeInstrument(int instrument, int value)
+// Schreibt nur den PWM-Wert, ohne Ziel/Geschwindigkeit des Bewegungsprofils zu beeinflussen.
+void applyPwm(int instrument, int value)
 {
   const int pwmValue = constrain(value, 0, PWM_MAX);
   if (instrument == 1)
@@ -121,6 +122,22 @@ void writeInstrument(int instrument, int value)
   {
     pwmHours = pwmValue;
     ledcWrite(PIN_HOURS, pwmValue);
+  }
+}
+
+// Fuer instante Direktschreibvorgaenge: PWM setzen und Bewegungsprofil-Ziel synchron halten.
+void writeInstrument(int instrument, int value)
+{
+  applyPwm(instrument, value);
+  if (instrument == 1)
+  {
+    targetPwmMinutes = pwmMinutes;
+    motionVelocityMinutes = 0;
+  }
+  else if (instrument == 2)
+  {
+    targetPwmHours = pwmHours;
+    motionVelocityHours = 0;
   }
 }
 
@@ -172,11 +189,28 @@ void updateInstrumentMotion()
 
   const int nextMinutes = stepMotionAxis(pwmMinutes, motionVelocityMinutes, targetPwmMinutes);
   if (nextMinutes != pwmMinutes)
-    writeInstrument(1, nextMinutes);
+    applyPwm(1, nextMinutes);
 
   const int nextHours = stepMotionAxis(pwmHours, motionVelocityHours, targetPwmHours);
   if (nextHours != pwmHours)
-    writeInstrument(2, nextHours);
+    applyPwm(2, nextHours);
+}
+
+// Live-Ausgaben respektieren das Bewegungsprofil statt es zu ueberschreiben, unabhaengig von der Betriebsart.
+void driveInstrumentLive(int instrument, int value)
+{
+  const int pwmValue = constrain(value, 0, PWM_MAX);
+  if (motionProfileEnabled)
+  {
+    if (instrument == 1)
+      targetPwmMinutes = pwmValue;
+    else if (instrument == 2)
+      targetPwmHours = pwmValue;
+  }
+  else
+  {
+    writeInstrument(instrument, pwmValue);
+  }
 }
 
 uint16_t interpolate(uint16_t start, uint16_t end, uint16_t numerator, uint16_t denominator)
@@ -408,7 +442,7 @@ bool writeWebPwm(int instrument, int value)
     return false;
 
   activeInstrument = instrument;
-  writeInstrument(instrument, value);
+  driveInstrumentLive(instrument, value);
   rotaryEncoder.setEncoderValue(value);
   lastEncoderValue = value;
   return true;
@@ -424,7 +458,7 @@ bool setWebMode(uint8_t mode)
 
 bool setWebTime(uint8_t hour, uint8_t minute)
 {
-  if (hour > 23 || minute > 59)
+  if (hour > 12 || minute > 59)
     return false;
   dummyHour = hour;
   dummyMinute = minute;
@@ -444,9 +478,10 @@ bool writeWebCalibration(int instrument, uint8_t index, int value, bool persist)
   table[index] = static_cast<uint16_t>(value);
   if (persist)
     saveCalibration();
+
+  driveInstrumentLive(instrument, value);
   if (operatingMode != OperatingMode::Normal && activeCalibrationInstrument() == instrument && calibrationIndex == index)
   {
-    writeInstrument(instrument, value);
     rotaryEncoder.setEncoderValue(value);
     lastEncoderValue = value;
   }
@@ -538,7 +573,7 @@ void setup()
   initializeCalibration();
   dummyHour = preferences.getUChar("hour", 12);
   dummyMinute = preferences.getUChar("minute", 0);
-  if (dummyHour > 23 || dummyMinute > 59)
+  if (dummyHour > 12 || dummyMinute > 59)
   {
     dummyHour = 12;
     dummyMinute = 0;
@@ -574,10 +609,9 @@ void loop()
   handleEncoderButton();
   handleEncoder();
 
-  if (operatingMode == OperatingMode::Normal)
-  {
-    if (dummyHour != lastDisplayedHour || dummyMinute != lastDisplayedMinute)
-      applyNormalTime();
-    updateInstrumentMotion();
-  }
+  if (operatingMode == OperatingMode::Normal && (dummyHour != lastDisplayedHour || dummyMinute != lastDisplayedMinute))
+    applyNormalTime();
+
+  // Bewegungsprofil laeuft unabhaengig von der Betriebsart, damit Live-Ausgaben ueberall wirken.
+  updateInstrumentMotion();
 }
