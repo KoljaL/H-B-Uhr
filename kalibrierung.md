@@ -6,8 +6,8 @@ Die Firmware kalibriert die beiden Dreheisenmesswerke über 13 PWM-Stützpunkte 
 
 | Funktion             | GPIO |
 | -------------------- | ---: |
-| Minutenmesswerk, PWM |   13 |
-| Stundenmesswerk, PWM |   14 |
+| Minutenmesswerk, PWM |   14 |
+| Stundenmesswerk, PWM |   13 |
 | Encoder A            |   26 |
 | Encoder B            |   25 |
 | Encoder-Taster       |   27 |

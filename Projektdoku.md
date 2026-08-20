@@ -9,24 +9,24 @@ Diese Dokumentation beschreibt die elektrotechnischen Hintergründe, die Dimensi
 ### 1.1 Ermittlung der Innenwiderstände
 Die Innenwiderstände der Spulen ($R_{\text{Spule}}$) wurden anhand der maximalen Betriebsspannung und des maximalen Stroms berechnet:
 
-* **Instrument 1** (40 mA bei 9,2 V):
-  $$R_{\text{Spule1}} = \frac{9,2\,\text{V}}{0,04\,\text{A}} = \mathbf{230\,\Omega}$$
+* **Minutenmesswerk** (40 mA bei 9,2 V):
+  $$R_{\text{Spule, Minuten}} = \frac{9,2\,\text{V}}{0,04\,\text{A}} = \mathbf{230\,\Omega}$$
 
-* **Instrument 2** (130 mA bei 2,7 V):
-  $$R_{\text{Spule2}} = \frac{2,7\,\text{V}}{0,13\,\text{A}} \approx \mathbf{20,77\,\Omega}$$
+* **Stundenmesswerk** (130 mA bei 2,7 V):
+  $$R_{\text{Spule, Stunden}} = \frac{2,7\,\text{V}}{0,13\,\text{A}} \approx \mathbf{20,77\,\Omega}$$
 
 ### 1.2 Vergleich der Regelungseigenschaften
-Instrument 1 ermöglicht mit der PWM des ESP32 eine spürbar feinere und präzisere Einstellung als Instrument 2. Dafür gibt es zwei wesentliche Gründe:
+Das Minutenmesswerk ermöglicht mit der PWM des ESP32 eine spürbar feinere und präzisere Einstellung als das Stundenmesswerk. Dafür gibt es zwei wesentliche Gründe:
 
 #### Das Verhältnis von Induktivität zu Widerstand (Zeitkonstante)
 Für eine ruhige Zeigerbewegung ist die Glättung des Stroms durch die Spule entscheidend.
-* **Instrument 1** besitzt durch seine dünnere, längere Wicklung eine hohe Induktivität ($L$) und einen hohen Innenwiderstand ($230\,\Omega$). Es verhält sich bei typischen PWM-Frequenzen gutmütig: Der Strom reißt in den Signalpausen nicht abrupt ab, was zu einem stabilen, hochauflösenden Zeigerstand führt.
-* **Instrument 2** ist mit $\approx 20,8\,\Omega$ extrem niederohmig. Der Strom schießt bei jedem Puls blitzschnell nach oben und fällt rasant ab (steile Flanken). Dies führt zu unruhigeren Strömen und minimalem Zeigerzittern im Grenzbereich.
+* **Das Minutenmesswerk** besitzt durch seine dünnere, längere Wicklung eine hohe Induktivität ($L$) und einen hohen Innenwiderstand ($230\,\Omega$). Es verhält sich bei typischen PWM-Frequenzen gutmütig: Der Strom reißt in den Signalpausen nicht abrupt ab, was zu einem stabilen, hochauflösenden Zeigerstand führt.
+* **Das Stundenmesswerk** ist mit $\approx 20,8\,\Omega$ extrem niederohmig. Der Strom schießt bei jedem Puls blitzschnell nach oben und fällt rasant ab (steile Flanken). Dies führt zu unruhigeren Strömen und minimalem Zeigerzittern im Grenzbereich.
 
 #### Der relative Einfluss von Peripheriewiderständen
 Der MOSFET IRF3708 wurde gezielt als Logic-Level-MOSFET gewählt, da er bereits bei den 3,3 V des ESP32 voll durchschaltet. Er besitzt einen Einschaltwiderstand ($R_{DS(on)}$) von etwa $0,01\,\Omega$ bis $0,03\,\Omega$.
-* **Bei Instrument 1** (Gesamtwiderstand im Kreis ca. $277\,\Omega$) ist dieser MOSFET-Widerstand absolut vernachlässigbar (unter 0,01 % Einfluss). Die Kennlinie hängt rein von der Spule ab.
-* **Bei Instrument 2** (Gesamtwiderstand im Kreis nur ca. $23\,\Omega$) fallen minimale Widerstände von Kabeln, Lötstellen oder der Erwärmung des MOSFETs prozentual stark ins Gewicht. Das System wird anfälliger für Schwankungen.
+* **Beim Minutenmesswerk** (Gesamtwiderstand im Kreis ca. $277\,\Omega$) ist dieser MOSFET-Widerstand absolut vernachlässigbar (unter 0,01 % Einfluss). Die Kennlinie hängt rein von der Spule ab.
+* **Beim Stundenmesswerk** (Gesamtwiderstand im Kreis nur ca. $23\,\Omega$) fallen minimale Widerstände von Kabeln, Lötstellen oder der Erwärmung des MOSFETs prozentual stark ins Gewicht. Das System wird anfälliger für Schwankungen.
 
 ---
 
@@ -45,14 +45,14 @@ Für den stabilen Betrieb des Dreheisenmesswerks ist die richtige Frequenzwahl e
 ## 3. Schaltungsaufbau & Hardware
 
 ### 3.1 Spannungsversorgung & Masse (GND)
-* **Eingang:** Ein 12V-Netzteil speist den Eingang des LM2596-Spannungsreglers sowie den Vorwiderstand von Instrument 1.
-* **LM2596-Ausgang:** Liefert stabile 3,3 V an den ESP32 und den Vorwiderstand von Instrument 2.
+* **Eingang:** Ein 12V-Netzteil speist den Eingang des LM2596-Spannungsreglers sowie den Vorwiderstand des Minutenmesswerks.
+* **LM2596-Ausgang:** Liefert stabile 3,3 V an den ESP32 und den Vorwiderstand des Stundenmesswerks.
 * **Gemeinsame Masse (GND):** Alle Minuspole (12V-Netzteil, LM2596-Eingang/Ausgang, ESP32-GND und die Source-Pins der MOSFETs) müssen zwingend miteinander verbunden sein.
 
 ### 3.2 Schutzbeschaltung (Gate & Spule)
 * **Gate-Serienwiderstand:** Ca. $100\,\Omega$ schützen den ESP32-Pin vor Stromspitzen beim Umschalten (Umladen der Gate-Kapazität).
 * **Pull-Down-Widerstand:** Ein $10\,\text{k}\Omega$-Widerstand gegen GND verhindert unkontrolliertes Zeiger-Zucken beim Starten/Flashen des Systems.
-* **Induktiver Schutz (Freilaufdioden):** Da es sich bei den Messwerken um Spulen handelt, muss unbedingt parallel zu jedem Instrument eine schnelle Freilaufdiode geschaltet werden (Kathode an Plus, Anode an den MOSFET-Drain). Sie schützt den MOSFET vor zerstörerischen Induktionsspannungen beim Abschalten der PWM-Pulse.
+* **Induktiver Schutz (Freilaufdioden):** Da es sich bei den Messwerken um Spulen handelt, muss unbedingt parallel zu jedem Messwerk eine schnelle Freilaufdiode geschaltet werden (Kathode an Plus, Anode an den MOSFET-Drain). Sie schützt den MOSFET vor zerstörerischen Induktionsspannungen beim Abschalten der PWM-Pulse.
 
 ### 3.3 Einkaufs- und Bauteilliste
 
@@ -62,8 +62,8 @@ Für den stabilen Betrieb des Dreheisenmesswerks ist die richtige Frequenzwahl e
 | **2x** | MOSFET IRF3708                  | N-Channel Logic-Level MOSFET                                | -                         |
 | **2x** | $100\,\Omega$ Widerstand        | Gate-Schutz für die MOSFETs (Standard 0,25 W)               | -                         |
 | **2x** | $10\,\text{k}\Omega$ Widerstand | Pull-Down gegen GND für definierten Pegel (Standard 0,25 W) | -                         |
-| **1x** | $47\,\Omega$ Widerstand         | Vorwiderstand für Instrument 1 (Standard 0,25 W)            | ca. 0,075 W (unkritisch)  |
-| **1x** | $2,2\,\Omega$ Widerstand        | Vorwiderstand für Instrument 2 (Standard 0,25 W)            | ca. 0,04 W (sicher)       |
+| **1x** | $47\,\Omega$ Widerstand         | Vorwiderstand für das Minutenmesswerk (Standard 0,25 W)     | ca. 0,075 W (unkritisch)  |
+| **1x** | $2,2\,\Omega$ Widerstand        | Vorwiderstand für das Stundenmesswerk (Standard 0,25 W)     | ca. 0,04 W (sicher)       |
 
 ---
 
@@ -76,8 +76,8 @@ Nach dem Verbauen der Vorwiderstände muss die Ansteuerung im Code kalibriert we
 
 
 ## Pinbelegung (ESP32):
-14 Stundenzeiger (Instrument 2)
-13 Minutenzeiger (Instrument 1)
+14 Minutenzeiger
+13 Stundenzeiger
 21 SCL (I²C) für RTC DS3231
 22 SDA (I²C) 
 25 Encoder A
@@ -102,8 +102,8 @@ Hauptloop nicht. Die Weboberflaeche ist unter der IP-Adresse des ESP32 erreichba
 
 ### JSON-API
 
-`GET /api/state` liefert Instrument und PWM-Werte. `POST /api/state` akzeptiert
-beispielsweise `{"instrument":1,"pwm":450}`. Der PWM-Wert muss im gemeinsamen
+`GET /api/state` liefert die aktive Achse und PWM-Werte. `POST /api/state` akzeptiert
+beispielsweise `{"axis":"minutes","pwm":450}`. Der PWM-Wert muss im gemeinsamen
 10-Bit-Bereich von `0` bis `1023` liegen.
 
 ## Firmware-Architektur
@@ -145,6 +145,6 @@ Weitere Endpunkte:
 
 * `POST /api/mode` mit `{"mode":0}`, `{"mode":1}` oder `{"mode":2}`
 * `POST /api/time` mit `{"hour":14,"minute":30}`
-* `POST /api/calibration` mit Instrument, Index, PWM und optionalem `persist`
+* `POST /api/calibration` mit `axis` (`"minutes"` oder `"hours"`), Index, PWM und optionalem `persist`
 * `POST /api/calibration/save` zum dauerhaften Speichern aller Werte
 

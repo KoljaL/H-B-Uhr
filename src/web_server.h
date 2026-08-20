@@ -4,13 +4,19 @@
 
 #include <Arduino.h>
 
+enum class InstrumentAxis : uint8_t
+{
+  Minutes,
+  Hours
+};
+
 struct WebServerState
 {
   uint8_t mode;
   uint8_t calibrationIndex;
   uint8_t dummyHour;
   uint8_t dummyMinute;
-  int activeInstrument;
+  InstrumentAxis activeAxis;
   int pwmMinutes;
   int pwmHours;
   int targetPwmMinutes;
@@ -24,10 +30,10 @@ struct WebServerState
 };
 
 using WebStateReader = WebServerState (*)();
-using WebPwmWriter = bool (*)(int instrument, int pwm);
+using WebPwmWriter = bool (*)(InstrumentAxis axis, int pwm);
 using WebModeWriter = bool (*)(uint8_t mode);
 using WebTimeWriter = bool (*)(uint8_t hour, uint8_t minute);
-using WebCalibrationWriter = bool (*)(int instrument, uint8_t index, int pwm, bool persist);
+using WebCalibrationWriter = bool (*)(InstrumentAxis axis, uint8_t index, int pwm, bool persist);
 using WebCalibrationSaver = bool (*)();
 using WebMotionWriter = bool (*)(bool enabled, uint32_t intervalMs, int accel, int maxSpeed);
 

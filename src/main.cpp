@@ -76,7 +76,7 @@ OperatingMode operatingMode = OperatingMode::Normal;
 uint8_t calibrationIndex = 0;
 uint8_t dummyHour = 12;
 uint8_t dummyMinute = 0;
-int activeInstrument = 1;
+InstrumentAxis activeAxis = InstrumentAxis::Minutes;
 int pwmMinutes = 0;
 int pwmHours = 0;
 bool motionProfileEnabled = ENABLE_MOTION_PROFILE;
@@ -109,16 +109,21 @@ bool validPwm(int value)
   return value >= 0 && value <= PWM_MAX;
 }
 
+const char *axisName(InstrumentAxis axis)
+{
+  return axis == InstrumentAxis::Minutes ? "Minuten" : "Stunden";
+}
+
 // Schreibt nur den PWM-Wert, ohne Ziel/Geschwindigkeit des Bewegungsprofils zu beeinflussen.
-void applyPwm(int instrument, int value)
+void applyPwm(InstrumentAxis axis, int value)
 {
   const int pwmValue = constrain(value, 0, PWM_MAX);
-  if (instrument == 1)
+  if (axis == InstrumentAxis::Minutes)
   {
     pwmMinutes = pwmValue;
     ledcWrite(PIN_MINUTES, pwmValue);
   }
-  else if (instrument == 2)
+  else if (axis == InstrumentAxis::Hours)
   {
     pwmHours = pwmValue;
     ledcWrite(PIN_HOURS, pwmValue);
@@ -126,15 +131,15 @@ void applyPwm(int instrument, int value)
 }
 
 // Fuer instante Direktschreibvorgaenge: PWM setzen und Bewegungsprofil-Ziel synchron halten.
-void writeInstrument(int instrument, int value)
+void writeInstrument(InstrumentAxis axis, int value)
 {
-  applyPwm(instrument, value);
-  if (instrument == 1)
+  applyPwm(axis, value);
+  if (axis == InstrumentAxis::Minutes)
   {
     targetPwmMinutes = pwmMinutes;
     motionVelocityMinutes = 0;
   }
-  else if (instrument == 2)
+  else if (axis == InstrumentAxis::Hours)
   {
     targetPwmHours = pwmHours;
     motionVelocityHours = 0;
@@ -189,27 +194,27 @@ void updateInstrumentMotion()
 
   const int nextMinutes = stepMotionAxis(pwmMinutes, motionVelocityMinutes, targetPwmMinutes);
   if (nextMinutes != pwmMinutes)
-    applyPwm(1, nextMinutes);
+    applyPwm(InstrumentAxis::Minutes, nextMinutes);
 
   const int nextHours = stepMotionAxis(pwmHours, motionVelocityHours, targetPwmHours);
   if (nextHours != pwmHours)
-    applyPwm(2, nextHours);
+    applyPwm(InstrumentAxis::Hours, nextHours);
 }
 
 // Live-Ausgaben respektieren das Bewegungsprofil statt es zu ueberschreiben, unabhaengig von der Betriebsart.
-void driveInstrumentLive(int instrument, int value)
+void driveInstrumentLive(InstrumentAxis axis, int value)
 {
   const int pwmValue = constrain(value, 0, PWM_MAX);
   if (motionProfileEnabled)
   {
-    if (instrument == 1)
+    if (axis == InstrumentAxis::Minutes)
       targetPwmMinutes = pwmValue;
-    else if (instrument == 2)
+    else if (axis == InstrumentAxis::Hours)
       targetPwmHours = pwmValue;
   }
   else
   {
-    writeInstrument(instrument, pwmValue);
+    writeInstrument(axis, pwmValue);
   }
 }
 
@@ -263,16 +268,16 @@ uint16_t *activeCalibrationTable()
   return operatingMode == OperatingMode::CalibrationMinutes ? calibration.minutes : calibration.hours;
 }
 
-int activeCalibrationInstrument()
+InstrumentAxis activeCalibrationAxis()
 {
-  return operatingMode == OperatingMode::CalibrationMinutes ? 1 : 2;
+  return operatingMode == OperatingMode::CalibrationMinutes ? InstrumentAxis::Minutes : InstrumentAxis::Hours;
 }
 
 void showCalibrationPoint()
 {
-  activeInstrument = activeCalibrationInstrument();
+  activeAxis = activeCalibrationAxis();
   const uint16_t value = activeCalibrationTable()[calibrationIndex];
-  writeInstrument(activeInstrument, value);
+  writeInstrument(activeAxis, value);
   rotaryEncoder.setEncoderValue(value);
   lastEncoderValue = value;
   Serial.printf("[KALIBRIERUNG] %s Punkt %u: PWM %u\n",
@@ -308,8 +313,8 @@ void applyNormalTime()
 
   if (!motionProfileEnabled)
   {
-    writeInstrument(1, minutePwm);
-    writeInstrument(2, hourPwm);
+    writeInstrument(InstrumentAxis::Minutes, minutePwm);
+    writeInstrument(InstrumentAxis::Hours, hourPwm);
   }
 
   lastDisplayedHour = dummyHour;
@@ -328,7 +333,7 @@ void setOperatingMode(OperatingMode mode)
   lastDisplayedMinute = -1;
   if (mode == OperatingMode::Normal)
   {
-    activeInstrument = 1;
+    activeAxis = InstrumentAxis::Minutes;
     applyNormalTime();
     return;
   }
@@ -411,8 +416,8 @@ void handleEncoder()
     return;
 
   activeCalibrationTable()[calibrationIndex] = value;
-  writeInstrument(activeCalibrationInstrument(), value);
-  Serial.printf("[KALIBRIERUNG] Instrument %d | PWM %d\n", activeCalibrationInstrument(), value);
+  writeInstrument(activeCalibrationAxis(), value);
+  Serial.printf("[KALIBRIERUNG] %s | PWM %d\n", axisName(activeCalibrationAxis()), value);
 }
 
 WebServerState readWebState()
@@ -422,7 +427,7 @@ WebServerState readWebState()
   state.calibrationIndex = calibrationIndex;
   state.dummyHour = dummyHour;
   state.dummyMinute = dummyMinute;
-  state.activeInstrument = activeInstrument;
+  state.activeAxis = activeAxis;
   state.pwmMinutes = pwmMinutes;
   state.pwmHours = pwmHours;
   state.targetPwmMinutes = targetPwmMinutes;
@@ -436,13 +441,13 @@ WebServerState readWebState()
   return state;
 }
 
-bool writeWebPwm(int instrument, int value)
+bool writeWebPwm(InstrumentAxis axis, int value)
 {
-  if ((instrument != 1 && instrument != 2) || !validPwm(value))
+  if (!validPwm(value))
     return false;
 
-  activeInstrument = instrument;
-  driveInstrumentLive(instrument, value);
+  activeAxis = axis;
+  driveInstrumentLive(axis, value);
   rotaryEncoder.setEncoderValue(value);
   lastEncoderValue = value;
   return true;
@@ -469,18 +474,18 @@ bool setWebTime(uint8_t hour, uint8_t minute)
   return true;
 }
 
-bool writeWebCalibration(int instrument, uint8_t index, int value, bool persist)
+bool writeWebCalibration(InstrumentAxis axis, uint8_t index, int value, bool persist)
 {
-  if ((instrument != 1 && instrument != 2) || index >= CALIBRATION_POINTS || !validPwm(value))
+  if (index >= CALIBRATION_POINTS || !validPwm(value))
     return false;
 
-  uint16_t *table = instrument == 1 ? calibration.minutes : calibration.hours;
+  uint16_t *table = axis == InstrumentAxis::Minutes ? calibration.minutes : calibration.hours;
   table[index] = static_cast<uint16_t>(value);
   if (persist)
     saveCalibration();
 
-  driveInstrumentLive(instrument, value);
-  if (operatingMode != OperatingMode::Normal && activeCalibrationInstrument() == instrument && calibrationIndex == index)
+  driveInstrumentLive(axis, value);
+  if (operatingMode != OperatingMode::Normal && activeCalibrationAxis() == axis && calibrationIndex == index)
   {
     rotaryEncoder.setEncoderValue(value);
     lastEncoderValue = value;
@@ -586,8 +591,8 @@ void setup()
 
   ledcAttach(PIN_MINUTES, PWM_FREQ, PWM_RESOLUTION);
   ledcAttach(PIN_HOURS, PWM_FREQ, PWM_RESOLUTION);
-  writeInstrument(1, 0);
-  writeInstrument(2, 0);
+  writeInstrument(InstrumentAxis::Minutes, 0);
+  writeInstrument(InstrumentAxis::Hours, 0);
 
   pinMode(ENCODER_SW_PIN, INPUT_PULLUP);
   rotaryEncoder.begin();

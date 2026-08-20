@@ -33,23 +33,23 @@ main{max-width:980px;margin:auto}h1{font:700 clamp(2.3rem,7vw,4.5rem)/.95 Georgi
 <section class="panel"><h2>Stundenpunkte</h2><div class="table-wrap"><table class="table"><thead><tr><th>Punkt</th><th>Position</th><th>PWM</th><th>Aktion</th></tr></thead><tbody id="hours"></tbody></table></div></section>
 <section class="panel"><h2>Minutenpunkte</h2><div class="table-wrap"><table class="table"><thead><tr><th>Punkt</th><th>Position</th><th>PWM</th><th>Aktion</th></tr></thead><tbody id="minutes"></tbody></table></div><button id="save">Alle Kalibrierwerte speichern</button></section>
 </div>
-<section class="panel"><h2>Live-Ausgabe</h2><div class="time"><label>Instrument<input id="instrument" type="number" min="1" max="2" value="1"></label><label>PWM<input id="live-pwm" type="number" min="0" max="1023" value="0"></label><button id="live">PWM live testen</button></div></section>
+<section class="panel"><h2>Live-Ausgabe</h2><div class="time"><label>Zeiger<select id="axis"><option value="minutes">Minutenzeiger</option><option value="hours">Stundenzeiger</option></select></label><label>PWM<input id="live-pwm" type="number" min="0" max="1023" value="0"></label><button id="live">PWM live testen</button></div></section>
 <section class="panel"><h2>Bewegungsprofil</h2><div class="time"><label class="toggle"><input id="motion-enabled" type="checkbox">Aktiv</label><label>Intervall (ms)<input id="motion-interval" type="number" min="1" max="1000"></label><label>Beschleunigung<input id="motion-accel" type="number" min="1" max="1023"></label><label>Max. Geschwindigkeit<input id="motion-maxspeed" type="number" min="1" max="1023"></label><button id="motion-save">&Uuml;bernehmen</button></div></section>
 <small>Die Dummy-Uhrzeit bleibt nach dem Setzen stehen. Die Minutenpunkte werden in 5-Minuten-Schritten gespeichert, der Punkt 60 ist separat.</small></main><script>
 let state=null;const $=id=>document.getElementById(id);const phase=['Normalbetrieb','Minuten','Stunden'];
 function message(text,error=false){$('message').textContent=text;$('message').className=error?'message error':'message'}
-function row(instrument,index,value){const position=instrument===1?index*5:index;return `<tr><td>${index}</td><td>${position}${instrument===1?' min':' Uhr'}</td><td><input data-value="${instrument}-${index}" type="number" min="0" max="1023" value="${value}"></td><td><button data-live="${instrument}-${index}">Live</button></td></tr>`}
-function renderTable(instrument,values){$(instrument===1?'minutes':'hours').innerHTML=values.map((v,i)=>row(instrument,i,v)).join('')}
-function render(){if(!state)return;$('clock').textContent=String(state.dummyTime.hour).padStart(2,'0')+':'+String(state.dummyTime.minute).padStart(2,'0');$('phase').textContent=phase[state.mode]||'Unbekannt';$('point').textContent=state.mode===0?'PWM '+state.pwm.hours+' / '+state.pwm.minutes:state.calibrationIndex+' / 12';if(!document.activeElement||document.activeElement!==$('hour')){$('hour').value=state.dummyTime.hour;$('hour-val').textContent=state.dummyTime.hour}if(!document.activeElement||document.activeElement!==$('minute')){$('minute').value=state.dummyTime.minute;$('minute-val').textContent=state.dummyTime.minute}$('instrument').value=state.activeInstrument;$('live-pwm').value=state.activeInstrument===1?state.pwm.minutes:state.pwm.hours;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',+b.dataset.mode===state.mode));if(!document.activeElement||!document.activeElement.matches('input[data-value]')){renderTable(2,state.calibration.hours);renderTable(1,state.calibration.minutes)}if(!document.activeElement||!document.activeElement.matches('#motion-enabled,#motion-interval,#motion-accel,#motion-maxspeed')){$('motion-enabled').checked=state.motion.enabled;$('motion-interval').value=state.motion.intervalMs;$('motion-accel').value=state.motion.accel;$('motion-maxspeed').value=state.motion.maxSpeed}}
+function row(axis,index,value){const minutes=axis==='minutes';const position=minutes?index*5:index;return `<tr><td>${index}</td><td>${position}${minutes?' min':' Uhr'}</td><td><input data-value="${axis}-${index}" type="number" min="0" max="1023" value="${value}"></td><td><button data-live="${axis}-${index}">Live</button></td></tr>`}
+function renderTable(axis,values){$(axis).innerHTML=values.map((v,i)=>row(axis,i,v)).join('')}
+function render(){if(!state)return;$('clock').textContent=String(state.dummyTime.hour).padStart(2,'0')+':'+String(state.dummyTime.minute).padStart(2,'0');$('phase').textContent=phase[state.mode]||'Unbekannt';$('point').textContent=state.mode===0?'PWM '+state.pwm.hours+' / '+state.pwm.minutes:state.calibrationIndex+' / 12';if(!document.activeElement||document.activeElement!==$('hour')){$('hour').value=state.dummyTime.hour;$('hour-val').textContent=state.dummyTime.hour}if(!document.activeElement||document.activeElement!==$('minute')){$('minute').value=state.dummyTime.minute;$('minute-val').textContent=state.dummyTime.minute}$('axis').value=state.activeAxis;$('live-pwm').value=state.activeAxis==='minutes'?state.pwm.minutes:state.pwm.hours;document.querySelectorAll('[data-mode]').forEach(b=>b.classList.toggle('active',+b.dataset.mode===state.mode));if(!document.activeElement||!document.activeElement.matches('input[data-value]')){renderTable('hours',state.calibration.hours);renderTable('minutes',state.calibration.minutes)}if(!document.activeElement||!document.activeElement.matches('#motion-enabled,#motion-interval,#motion-accel,#motion-maxspeed')){$('motion-enabled').checked=state.motion.enabled;$('motion-interval').value=state.motion.intervalMs;$('motion-accel').value=state.motion.accel;$('motion-maxspeed').value=state.motion.maxSpeed}}
 async function request(url,body){const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error||'Anfrage fehlgeschlagen');return data}
 async function refresh(){try{const r=await fetch('/api/state');if(!r.ok)throw Error();state=await r.json();render()}catch(e){message('Webserver nicht erreichbar',true)}}
 document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=async()=>{try{state=await request('/api/mode',{mode:+b.dataset.mode});render();message('Betriebsart gesetzt')}catch(e){message(e.message,true)}});
 $('set-time').onclick=async()=>{try{state=await request('/api/time',{hour:+$('hour').value,minute:+$('minute').value});render();message('Uhrzeit gesetzt')}catch(e){message(e.message,true)}};
 $('random-time').onclick=async()=>{try{const hour=Math.floor(Math.random()*13);const minute=Math.floor(Math.random()*60);state=await request('/api/time',{hour,minute});render();message('Zufaellige Zeit gesetzt')}catch(e){message(e.message,true)}};
 $('save').onclick=async()=>{try{state=await request('/api/calibration/save',{});render();message('Kalibrierwerte gespeichert')}catch(e){message(e.message,true)}};
-$('live').onclick=async()=>{try{state=await request('/api/state',{instrument:+$('instrument').value,pwm:+$('live-pwm').value});render();message('PWM ausgegeben')}catch(e){message(e.message,true)}};
+$('live').onclick=async()=>{try{state=await request('/api/state',{axis:$('axis').value,pwm:+$('live-pwm').value});render();message('PWM ausgegeben')}catch(e){message(e.message,true)}};
 $('motion-save').onclick=async()=>{try{state=await request('/api/motion',{enabled:$('motion-enabled').checked,intervalMs:+$('motion-interval').value,accel:+$('motion-accel').value,maxSpeed:+$('motion-maxspeed').value});render();message('Bewegungsprofil aktualisiert')}catch(e){message(e.message,true)}};
-document.addEventListener('click',async e=>{if(!e.target.matches('[data-live]'))return;const [instrument,index]=e.target.dataset.live.split('-').map(Number);const input=document.querySelector(`[data-value="${instrument}-${index}"]`);try{state=await request('/api/calibration',{instrument:instrument,index:index,pwm:+input.value,persist:false});render();message('Punkt live ausgegeben')}catch(err){message(err.message,true)}});
+document.addEventListener('click',async e=>{if(!e.target.matches('[data-live]'))return;const [axis,index]=e.target.dataset.live.split('-');const input=document.querySelector(`[data-value="${axis}-${index}"]`);try{state=await request('/api/calibration',{axis:axis,index:+index,pwm:+input.value,persist:false});render();message('Punkt live ausgegeben')}catch(err){message(err.message,true)}});
 $('hour').oninput=()=>$('hour-val').textContent=$('hour').value;
 $('minute').oninput=()=>$('minute-val').textContent=$('minute').value;
 let pollTimer=null;
@@ -66,7 +66,7 @@ refresh();setPolling(true);
     status["calibrationIndex"] = state.calibrationIndex;
     status["dummyTime"]["hour"] = state.dummyHour;
     status["dummyTime"]["minute"] = state.dummyMinute;
-    status["activeInstrument"] = state.activeInstrument;
+    status["activeAxis"] = state.activeAxis == InstrumentAxis::Minutes ? "minutes" : "hours";
     status["pwm"]["minutes"] = state.pwmMinutes;
     status["pwm"]["hours"] = state.pwmHours;
     status["pwm"]["targetMinutes"] = state.targetPwmMinutes;
@@ -95,16 +95,32 @@ refresh();setPolling(true);
     return false;
   }
 
+  bool parseAxis(JsonDocument &request, InstrumentAxis &axis)
+  {
+    const String axisValue = request["axis"] | "";
+    if (axisValue == "minutes")
+    {
+      axis = InstrumentAxis::Minutes;
+      return true;
+    }
+    if (axisValue == "hours")
+    {
+      axis = InstrumentAxis::Hours;
+      return true;
+    }
+    return false;
+  }
+
   void setPwm()
   {
     JsonDocument request;
     if (!parseRequest(request))
       return;
-    const int instrument = request["instrument"] | 0;
+    InstrumentAxis axis;
     const int pwm = request["pwm"] | -1;
-    if (!schreibePwm(instrument, pwm))
+    if (!parseAxis(request, axis) || !schreibePwm(axis, pwm))
     {
-      server.send(400, "application/json", R"({"error":"Instrument oder PWM ungueltig"})");
+      server.send(400, "application/json", R"({"error":"Zeiger oder PWM ungueltig"})");
       return;
     }
     sendState();
@@ -144,13 +160,13 @@ refresh();setPolling(true);
     JsonDocument request;
     if (!parseRequest(request))
       return;
-    const int instrument = request["instrument"] | 0;
+    InstrumentAxis axis;
     const int index = request["index"] | -1;
     const int pwm = request["pwm"] | -1;
     const bool persist = request["persist"] | false;
-    if (index < 0 || index >= 13 || !schreibeKalibrierung(instrument, static_cast<uint8_t>(index), pwm, persist))
+    if (index < 0 || index >= 13 || !parseAxis(request, axis) || !schreibeKalibrierung(axis, static_cast<uint8_t>(index), pwm, persist))
     {
-      server.send(400, "application/json", R"({"error":"Kalibrierwert ungueltig"})");
+      server.send(400, "application/json", R"({"error":"Zeiger oder Kalibrierwert ungueltig"})");
       return;
     }
     sendState();
