@@ -1,0 +1,22 @@
+# PlatformIO interne Build-Ordner und Caches (EXTREM WICHTIG FÜR AGENTS)
+.pio/
+.pioenvs/
+.piolibdeps/
+.clang_complete
+.gcc-flags.json
+
+# IDE-spezifische Konfigurationen
+.vscode/
+.idea/
+
+# Kompilate und temporäre Dateien
+*.o
+*.elf
+*.bin
+*.hex
+*.map
+
+# Große Dokumentationen oder Logs
+logs/
+*.log
+docs/
