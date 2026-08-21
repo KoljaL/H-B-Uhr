@@ -54,8 +54,8 @@ AiEsp32RotaryEncoder rotaryEncoder(
     ENCODER_B_PIN,
     ENCODER_SW_PIN,
     ENCODER_VCC_PIN,
-    ENCODER_STEPS,
-    false);
+    ENCODER_STEPS);
+// false
 
 enum class OperatingMode : uint8_t
 {
